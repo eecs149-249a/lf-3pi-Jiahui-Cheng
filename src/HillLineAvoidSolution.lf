@@ -1,0 +1,212 @@
+target C {
+    platform: {
+      name: "rp2040",
+      board: "pololu_3pi_2040_robot"
+    },
+    threading: false,
+  }
+  
+  import Motors from "lib/Motors.lf"
+  import Line from "lib/Line.lf"
+  import Display from "lib/Display.lf"
+  import GyroAngle from "lib/IMU.lf"
+  import Encoders from "lib/Encoders.lf"
+  import AngleToDistance from "lib/AngleToDistance.lf"
+  
+  main reactor(calibration_time: time = 10 s, sample_period: time = 100 ms) {
+    motor = new Motors()
+    line = new Line()
+    disp = new Display()
+    gyroangle = new GyroAngle()
+    encoder = new Encoders()
+    angletodistL = new AngleToDistance()
+    angletodistR = new AngleToDistance()
+  
+    timer t(0, sample_period)
+    // Timer used to display seconds.
+    timer seconds(0, 1 s)
+    timer end_calibration(calibration_time)
+    state count: int = 0
+    state drive:bool = false
+    state turn:bool = false
+
+    timer t2(0, 250 ms)
+    state total_dist:float = 0;
+    state rel_0_dist:float = 0;
+    state rel_0_angle:float = 0;
+
+    //   reaction(line.reflect) -> LeftAvoid, CenterAvoid, RightAvoid {=
+//     if (line.reflect -> value[0] > 700 || line.reflect -> value[1] > 700) {
+//         lf_set_mode(LeftAvoid)
+//     }
+//     if (line.reflect -> value[3] > 700 || line.reflect -> value[4] > 700) {
+//         lf_set(self->rightavoid,true);
+//     }
+//     if (line.reflect -> value[1] > 700 || value[2] > 700 || line.reflect -> value[3] > 700) {
+//         lf_set(self->centeravoid,true);
+//     }
+// =}
+  
+    reaction(startup) -> disp.line0, disp.line1, disp.line2 {=
+      lf_set(disp.line0, "CALIBRATING");
+      lf_set(disp.line1, "Roll robot over");
+      lf_set(disp.line2, "light and dark.");
+    =}
+    reaction(end_calibration) -> line.calibrate {=
+        lf_set(line.calibrate, false);
+    =}
+    // reaction(seconds) -> disp.line3 {=
+    //     static char buf[17];
+    //     snprintf(buf, 17, "time:%8d s", self->count++);
+    //     lf_set(disp.line3, buf);
+    // =}
+    reaction(t) -> line.trigger {=
+    lf_set(line.trigger, true);
+    =}
+    // reaction(line.reflect) -> disp.line0, disp.line1, disp.line2 {=
+    //     static char buf0[17];
+    //     static char buf1[17];
+    //     static char buf2[17];
+    //     snprintf(buf0, 17, "0:%4d 1:%4d", line.reflect->value[0], line.reflect->value[1]);
+    //     snprintf(buf1, 17, "2:%4d 3:%4d", line.reflect->value[2], line.reflect->value[3]);
+    //     snprintf(buf2, 17, "4:%4d", line.reflect->value[4]);
+    //     lf_set(disp.line0, buf0);
+    //     lf_set(disp.line1, buf1);
+    //     lf_set(disp.line2, buf2);
+    // =}
+
+// Encoder Distance Readings
+    reaction(t2) -> encoder.trigger, gyroangle.trigger {=
+        lf_set(encoder.trigger, true);
+        lf_set(gyroangle.trigger,true);
+      =}
+    reaction(encoder.left) ->  angletodistL.encoder_reading {=
+        lf_set(angletodistL.encoder_reading, encoder.left->value);
+    =}
+    reaction(encoder.right) ->  angletodistR.encoder_reading {=
+        lf_set(angletodistR.encoder_reading, encoder.right->value);
+    =}
+    reaction(encoder.right) ->  angletodistR.encoder_reading {=
+        lf_set(angletodistR.encoder_reading, encoder.right->value);
+    =}
+
+    initial mode Calibrating {
+        reaction(end_calibration) -> Driving, motor.left_power, motor.right_power,disp.line3 {=
+            lf_set(disp.line3, "Driving");
+            lf_set(motor.left_power, 0.1f);
+            lf_set(motor.right_power, 0.1f);
+            lf_set_mode(Driving);
+          =}
+    }
+      
+    mode Driving {
+        reaction(line.reflect) -> LeftAvoid, RightAvoid, CenterAvoid, motor.left_power, motor.right_power, disp.line0, disp.line1, disp.line2 {=
+
+            if (line.reflect -> value[0] > 700 || line.reflect -> value[1] > 700) {
+              lf_set(disp.line0, "Left: Avoid!");
+              lf_set(motor.left_power,-0.1f);
+              lf_set(motor.right_power, -0.1f);
+              lf_set_mode(LeftAvoid);
+            }
+            else {
+              lf_set(disp.line0, "Left: Clear");
+            }
+            if (line.reflect -> value[3] > 700 || line.reflect -> value[4] > 700) {
+              lf_set(disp.line2, "Right: Avoid!");
+              lf_set(motor.left_power,-0.1f);
+              lf_set(motor.right_power, -0.1f);
+              lf_set_mode(RightAvoid);
+            }
+            else {
+              lf_set(disp.line2, "Right: Clear");
+            }
+            if (line.reflect -> value[1] > 700 || line.reflect -> value[2] > 700 || line.reflect -> value[3] >700)  {
+              lf_set(disp.line1,"Center: Avoid!");
+              lf_set(motor.left_power,-0.1f);
+              lf_set(motor.right_power, -0.1f);
+              lf_set_mode(CenterAvoid);
+            }
+            else {
+              lf_set(disp.line1, "Center: Clear");
+            }
+          =}
+    }
+
+    mode LeftAvoid {
+        reaction(angletodistL.encoder_dist_cm, angletodistR.encoder_dist_cm)  -> TurnRight, motor.left_power, motor.right_power, disp.line3 {=
+            self-> total_dist = (angletodistL.encoder_dist_cm->value+angletodistR.encoder_dist_cm->value)/2;
+            if(self->total_dist - self->rel_0_dist <= -2.0) {
+               self->rel_0_dist = self->total_dist;
+               lf_set(disp.line3, "TurnRight");
+               lf_set(motor.left_power, 0.1f);
+               lf_set(motor.right_power, -0.1f);
+               lf_set_mode(TurnRight);
+            }
+    =}
+    }
+
+    mode RightAvoid {
+        reaction(angletodistL.encoder_dist_cm, angletodistR.encoder_dist_cm)  -> TurnLeft, motor.left_power, motor.right_power, disp.line3 {=
+            self-> total_dist = (angletodistL.encoder_dist_cm->value+angletodistR.encoder_dist_cm->value)/2;
+            if(self->total_dist - self->rel_0_dist <= -2.0) {
+               self->rel_0_dist = self->total_dist;
+               lf_set(disp.line3, "TurnLeft");
+               lf_set(motor.left_power, -0.1f);
+               lf_set(motor.right_power, 0.1f);
+               lf_set_mode(TurnLeft);
+            }
+    =}
+    }
+
+    mode CenterAvoid {
+        reaction(angletodistL.encoder_dist_cm, angletodistR.encoder_dist_cm)  -> TurnAround, motor.left_power, motor.right_power, disp.line3 {=
+            self-> total_dist = (angletodistL.encoder_dist_cm->value+angletodistR.encoder_dist_cm->value)/2;
+            if(self->total_dist - self->rel_0_dist <= -2.0) {
+               self->rel_0_dist = self->total_dist;
+               lf_set(disp.line3, "TurnAround");
+               lf_set(motor.left_power, -0.1f);
+               lf_set(motor.right_power, 0.1f);
+               lf_set_mode(TurnAround);
+            }
+        =}
+    }
+
+    mode TurnRight {
+      reaction(gyroangle.z) ->  Driving, motor.left_power, motor.right_power, disp.line0, disp.line3{=
+        if (gyroangle.z->value - self->rel_0_angle>= -90) {
+            self->rel_0_angle = gyroangle.z->value;
+            lf_set(disp.line3, "Driving");
+            lf_set(motor.left_power, 0.1f);
+            lf_set(motor.right_power, 0.1f);
+            lf_set_mode(Driving);
+        }
+
+    =}
+    }
+
+    mode TurnLeft {
+        reaction(gyroangle.z) ->  Driving, motor.left_power, motor.right_power, disp.line3{=
+            if (gyroangle.z->value - self->rel_0_angle>= 90) {
+                self->rel_0_angle = gyroangle.z->value;
+                lf_set(disp.line3, "Driving");
+                lf_set(motor.left_power, 0.1f);
+                lf_set(motor.right_power, 0.1f);
+                lf_set_mode(Driving);
+            }
+        =}
+    }
+
+    mode TurnAround {
+        reaction(gyroangle.z) ->  Driving, motor.left_power, motor.right_power, disp.line3{=
+            if (gyroangle.z->value - self->rel_0_angle>= 180) {
+                self->rel_0_angle = gyroangle.z->value;
+                lf_set(disp.line3, "Driving");
+                lf_set(motor.left_power, 0.1f);
+                lf_set(motor.right_power, 0.1f);
+                lf_set_mode(Driving);
+            }
+        =}
+    }
+}
+  
+  
