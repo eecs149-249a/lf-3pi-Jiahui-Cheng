@@ -1,0 +1,91 @@
+/**
+ * Blink the default LED on the
+ * <a href="https://www.pololu.com/docs/0J86">Pololu 3pi+ 2040 robot</a>.
+ * @author Abhi Gundrala
+ * @author Edward A. Lee
+ */
+target C {
+  platform: {
+    name: "rp2040",
+    board: "pololu_3pi_2040_robot"
+  },
+  threading: false,
+  keepalive:true,
+}
+
+import Display from "lib/Display.lf"
+
+preamble {=
+  #include <stdio.h>
+  #include <pico/stdlib.h>
+  #include <hardware/gpio.h>
+=}
+
+main reactor {
+  preamble {=
+    
+    static void* action;
+    static instant_t last_phy_time = 0;
+
+    void callback(uint gpio, uint32_t event_mask) {
+      // printf("gpio: %d, event_mask: %d\n", gpio, event_mask);
+      instant_t elapsed_phy_time = lf_time_physical_elapsed();
+      if (elapsed_phy_time - last_phy_time > 200000000) {
+        lf_schedule(action, 0);
+      }
+      last_phy_time = elapsed_phy_time;
+      
+    }
+  =}
+  physical action a;
+  state last_time:instant_t = 0;
+  // state mode_up:bool = true;
+  state counter:int = 0;
+  d = new Display()
+
+  reaction(startup) -> a {=
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_IN);
+    gpio_set_irq_enabled_with_callback(25, GPIO_IRQ_EDGE_FALL, true, callback);
+
+    // lf_schedule(a, 0);
+    action = a;
+    self->last_time = lf_time_logical_elapsed();
+  =}
+
+  initial mode Up {
+    timer t_up(0ms, 250ms);
+    reaction(t_up) -> d.line0 {=
+      static char buf0[17];
+      snprintf(buf0, 17,"counter: %d", self->counter);
+      lf_set(d.line0, buf0);
+      self->counter++;
+    =}
+
+    reaction(a) -> a, Down {=
+      instant_t elapsed_time = lf_time_logical_elapsed();
+      printf("elapsed time: %lld\n", elapsed_time - self->last_time);
+      self->last_time = elapsed_time;
+
+      lf_set_mode(Down);
+    =}
+
+  }
+  mode Down {
+    timer t_down(0ms, 500ms);
+    reaction(t_down) -> d.line0 {=
+      static char buf0[17];
+      snprintf(buf0, 17,"counter: %d", self->counter);
+      lf_set(d.line0, buf0);
+      self->counter--;
+    =}
+
+    reaction(a) -> a, Up {=
+      instant_t elapsed_time = lf_time_logical_elapsed();
+      printf("elapsed time: %lld\n", elapsed_time - self->last_time);
+      self->last_time = elapsed_time;
+
+      lf_set_mode(Up);
+    =} 
+  }  
+}

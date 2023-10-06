@@ -1,0 +1,56 @@
+/**
+ * Blink the default LED on the
+ * <a href="https://www.pololu.com/docs/0J86">Pololu 3pi+ 2040 robot</a>.
+ * @author Abhi Gundrala
+ * @author Edward A. Lee
+ */
+target C {
+  platform: {
+    name: "rp2040",
+    board: "pololu_3pi_2040_robot"
+  },
+  threading: false,
+  keepalive:true,
+}
+
+preamble {=
+  #include <stdio.h>
+  #include <pico/stdlib.h>
+  #include <hardware/gpio.h>
+=}
+
+main reactor {
+  preamble {=
+    
+    static void* action;
+    static instant_t last_phy_time = 0;
+
+    void callback(uint gpio, uint32_t event_mask) {
+      // printf("gpio: %d, event_mask: %d\n", gpio, event_mask);
+      instant_t elapsed_phy_time = lf_time_physical_elapsed();
+      if (elapsed_phy_time - last_phy_time > 200000000) {
+        lf_schedule(action, 0);
+      }
+      last_phy_time = elapsed_phy_time;
+      
+    }
+  =}
+  physical action a;
+  state last_time:instant_t = 0;
+
+  reaction(startup) -> a {=
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_IN);
+    gpio_set_irq_enabled_with_callback(25, GPIO_IRQ_EDGE_FALL, true, callback);
+
+    lf_schedule(a, 0);
+    action = a;
+    self->last_time = lf_time_logical_elapsed();
+  =}
+
+  reaction(a) -> a {=
+    instant_t elapsed_time = lf_time_logical_elapsed();
+    printf("elapsed time: %lld\n", elapsed_time - self->last_time);
+    self->last_time = elapsed_time;
+  =}
+}

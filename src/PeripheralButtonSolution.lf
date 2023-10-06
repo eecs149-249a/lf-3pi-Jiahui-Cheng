@@ -1,0 +1,59 @@
+/**
+ * Blink the default LED on the
+ * <a href="https://www.pololu.com/docs/0J86">Pololu 3pi+ 2040 robot</a>.
+ * @author Abhi Gundrala
+ * @author Edward A. Lee
+ */
+target C {
+  platform: {
+    name: "rp2040",
+    board: "pololu_3pi_2040_robot"
+  },
+  threading: false,
+}
+
+import Display from "lib/Display.lf"
+
+preamble {=
+  #include <stdio.h>
+  #include <pico/stdlib.h>
+  #include <hardware/gpio.h>
+=}
+
+
+main reactor {
+  timer t(0, 250 ms);
+  state led_on:bool = false;
+
+  d = new Display()
+
+  reaction(startup) {=
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_IN);
+  =}
+  reaction(t) -> d.line0{=
+    self->led_on = !self->led_on;
+    printf("LED State: %b\n", self->led_on);
+    
+    
+    // gpio_put(PICO_DEFAULT_LED_PIN, !self->led_on);
+
+    // uint32_t *store;
+    // if (self->led_on) {
+    //   // set GPIO
+    //   store = (uint32_t *) 0xd0000014;
+    // }
+    // else {
+    //   // clear GPIO
+    //   store = (uint32_t *) 0xd0000018;
+    // }
+    // *store = 1ul << 25;
+    uint32_t *store = (uint32_t *) 0xd0000004;
+    static char buf0[17];
+    
+    // printf("Button State: %b\n", !!((1ul << 25) & *store));
+    // snprintf(buf0, 17, "LED State: %b", self->led_on);
+    snprintf(buf0, 17, "Button State: %b", !((1ul << 25) & *store));
+    lf_set(d.line0, buf0);
+  =}
+}
