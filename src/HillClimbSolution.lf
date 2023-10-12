@@ -6,276 +6,284 @@ target C {
     threading: false,
   }
   
-// import Motors from "lib/Motors.lf"
-import Line from "lib/Line.lf"
-import Display from "lib/Display.lf"
-import GyroAngle from "lib/IMU.lf"
-import Encoders from "lib/Encoders.lf"
-import AngleToDistance from "lib/AngleToDistance.lf"
-import MotorsWithFeedback from "lib/MotorsWithFeedback.lf"
-import Tilt from "lib/Tilt.lf"
-import Accelerometer from "lib/IMU.lf"
+  import Line from "lib/Line.lf"
+  import Display from "lib/Display.lf"
+  import Motors from "lib/Motors.lf"
+  import GyroAngle, Accelerometer, Gyro from "lib/IMU.lf"
+  import Encoders from "lib/Encoders.lf"
+  import Tilt from "lib/Tilt.lf"
 
-main reactor(calibration_time: time = 10 s, sample_period: time = 100 ms) {
-  // motor = new Motors()
-  line = new Line()
-  disp = new Display()
-  gyroangle = new GyroAngle()
-  encoder = new Encoders()
-  accelerometer = new Accelerometer()
-  tilt = new Tilt()
-  angletodistL = new AngleToDistance()
-  angletodistR = new AngleToDistance()
+  preamble {=
+    #define WHEEL_DIAMETER 0.03175  // in meters
+    #define PI 3.14159265358979323846
+  =}
 
-  motorfeedback = new MotorsWithFeedback()
+reactor AngleToDistance {
+    input angle:int32_t;
+    output distance:float;
   
-
-  timer t(0, sample_period)
-  timer seconds(0, 1 s)
-  timer end_calibration(calibration_time)
-
-  timer t2(0, 250 ms)
-
-  state rel_0_angle:float = 0;
-  state rel_0_dist:float = 0;
-
-  state Driveup: bool = false;
-  state Drivedown: bool = false;
-  state Turnaround: bool = false;
-
-//Line Sensor Calibration
-  reaction(startup) -> disp.line3 {=
-    lf_set(disp.line3, "CALIBRATING");
-  =}
-// Line Sensor Trigger
-  reaction(t) -> line.trigger {=
-  lf_set(line.trigger, true);
-  =}
-
-// Sensor Trigger
-  reaction(t2) -> encoder.trigger, gyroangle.trigger,accelerometer.trigger{=
-    lf_set(encoder.trigger, true);
-    lf_set(gyroangle.trigger,true);
-    lf_set(accelerometer.trigger, true);
-    =}
-
-//Calculate DIstance
-  reaction(t2)encoder.left ->  angletodistL.encoder_reading, motorfeedback.left {=
-    lf_set(angletodistL.encoder_reading, encoder.left->value); //Input to AngleToDist
-
-    lf_set(motorfeedback.left, encoder.left->value); //Input to Motors with Feedback
-  =}
-  reaction(t2)encoder.right ->  angletodistR.encoder_reading, motorfeedback.right {=
-    lf_set(angletodistR.encoder_reading, encoder.right->value); //Input to AngleToDist
-
-    lf_set(motorfeedback.right, encoder.right->value); //Input to Motors with Feedback
-  =}
-
-  //Calibrate tilt
-  reaction(accelerometer.x, accelerometer.y, accelerometer.z) ->  tilt.x, tilt.y, tilt.z {=
-    // static float bx = -0.018;
-    // static float by = -0.0275;
-    // static float bz = 0.0;
-    // static float mz = 1.0;
-    // static float my = 0.987 + 0.0275;
-    // static float mx = 0.998;
-    lf_set(tilt.x, accelerometer.x->value);
-    lf_set(tilt.y, accelerometer.y->value);
-    lf_set(tilt.z, accelerometer.z->value);
-  =}
-
-  //Display pitch and roll
-  reaction(tilt.pitch, tilt.roll) -> disp.line0, disp.line1 {=
-    static char buf0[17];
-    snprintf(buf0, 17, "pitch:%3.3f", tilt.pitch->value);
-    lf_set(disp.line0, buf0);
-
-    static char buf1[17];
-    snprintf(buf1, 17, "roll:%3.3f", tilt.roll->value);
-    lf_set(disp.line1, buf1);
-  =}
-
-//First calibration
-  initial mode Calibrating {
-    reaction(end_calibration) -> OrientingUp,line.calibrate {=
-      lf_set(line.calibrate, false);
-      lf_set_mode(OrientingUp);
+    reaction(angle) -> distance {=
+        float circumference = PI * WHEEL_DIAMETER;
+        float distanceTraveled = (angle->value / 360.0) * circumference;
+        lf_set(distance, distanceTraveled);
     =}
   }
   
-  // Second Orientation
-  mode OrientingUp {
-    reaction(tilt.pitch, tilt.roll) -> DrivingUp, motorfeedback.left_speed, motorfeedback.right_speed, disp.line3 {=
+  main reactor(calibration_time: time = 10 s, sample_period: time = 100 ms) {
+    preamble {=
+        #define UPHILL_SPEED 0.18
+        #define DOWNHILL_SPEED 0.07
+        #define FORWARD_SPEED 0.15
+        #define TURN_SPEED 0.13
+        #define TURN_ANGLE 15.0
+        #define DRIVE_DISTANCE 0.5 
+        #define BACKUP_DISTANCE 0.01
+        #define CONTINUE_DIST 0.7
+        #define DARK_THRESHOLD 900
+    =}
 
-    if (tilt.roll->value > 0){
-      lf_set(motorfeedback.left_speed, -0.05f);
-      lf_set(motorfeedback.right_speed, 0.05f);
+    line = new Line()
+    display = new Display()
+    motors = new Motors()
+    gyro = new GyroAngle()
+    a = new Accelerometer()
+    tilt = new Tilt()
+    g = new Gyro()
+    encoders = new Encoders()
+
+
+
+    angleToDistanceLeft = new AngleToDistance()
+    angleToDistanceRight = new AngleToDistance()
+
+    state didTurn: bool = false;
+    state gotUphill: bool = false;
+    state goingDown: bool = false;
+  
+    state lastAngle: float = 0.0;
+    state lastLeft: float = 0.0;
+    state lastRight: float = 0.0;
+
+    state leftLine: bool = false;
+    state centerLine: bool = false;
+    state rightLine: float = false;
+
+    timer t(0, 10ms)
+    // Timer used to display seconds.
+    timer seconds(0, 1 s)
+    timer end_calibration(calibration_time)
+    state count: int = 0
+  
+    method resett(ld: float, lr: float, la: float) {=
+      self->lastLeft = ld;
+      self->lastRight = lr;
+      self->lastAngle = la;
+    =}
+
+    reaction(t) -> a.trigger, gyro.trigger, encoders.trigger {=
+        lf_set(gyro.trigger, true);
+        lf_set(a.trigger, true);
+        lf_set(encoders.trigger, true);
+    =}
+
+
+    encoders.left -> angleToDistanceLeft.angle
+    encoders.right -> angleToDistanceRight.angle
+
+    
+    reaction(startup) -> display.line0, display.line1, display.line2 {=
+      lf_set(display.line0, "CALIBRATING");
+      lf_set(display.line1, "Roll robot over");
+      lf_set(display.line2, "light and dark.");
+    =}
+  
+
+
+    reaction(a.x, a.y, a.z) ->tilt.x, tilt.y, tilt.z {=
+        float x = 1.04 * a.x->value - 0.026;
+        float y = 0.99 * a.y->value + 0.003;
+        float z = a.z->value - 0.013;
+
+        lf_set(tilt.x, x);
+        lf_set(tilt.y, y);
+        lf_set(tilt.z, z);
+    =}
+
+    reaction(tilt.pitch, tilt.roll) -> display.line2, display.line1 {=
+        static char buf0[17];
+        static char buf1[17];
+
+        snprintf(buf0, 17, "roll:%2.4f", tilt.roll->value);
+        snprintf(buf1, 17, "pitch:%2.4f", tilt.pitch->value);
+
+        
+        lf_set(display.line2, buf0);
+        lf_set(display.line1, buf1);
+    =}
+
+    initial mode DRIVINGFORWARD {
+
+        reaction(angleToDistanceLeft.distance, angleToDistanceRight.distance) tilt.roll, tilt.pitch, gyro.z -> TURN_UPHILL, ROTATE_L, ROTATE_R, motors.left_power, motors.right_power, TURNING_R, display.line0 {=
+
+            if (tilt.pitch-> value < 10){
+              lf_set(motors.left_power, 0);
+              lf_set(motors.right_power, 0);
+              lf_set_mode(TURN_UPHILL);
+            }
+            else if(tilt.roll->value < -4){
+              lf_set(motors.left_power, 0);
+              lf_set(motors.right_power, 0);
+              lf_set_mode(ROTATE_R);
+            }
+            else if(tilt.roll->value > 4){
+              lf_set(motors.left_power, 0);
+              lf_set(motors.right_power, 0);
+              lf_set_mode(ROTATE_L);
+            }
+            
+            else{
+              lf_set(display.line0, "UPHILL");
+              self->gotUphill = true;
+              lf_set(motors.left_power, UPHILL_SPEED);
+              lf_set(motors.right_power, UPHILL_SPEED);
+            }  
+        =}
     }
-    else {
-      lf_set(motorfeedback.left_speed, 0.05f);
-      lf_set(motorfeedback.right_speed, -0.05f);
 
+    mode DRIVEDOWN {
+
+      reaction(angleToDistanceLeft.distance, angleToDistanceRight.distance) tilt.roll, tilt.pitch, gyro.z -> TURN_UPHILL, ROTATE_L, ROTATE_R, motors.left_power, motors.right_power, TURNING_R, display.line0 {=
+          self->goingDown = true;
+
+          if(tilt.roll->value < -4){
+            lf_set(motors.left_power, 0);
+            lf_set(motors.right_power, 0);
+            lf_set_mode(ROTATE_L);
+          }
+          else if(tilt.roll->value > 4){
+            lf_set(motors.left_power, 0);
+            lf_set(motors.right_power, 0);
+            lf_set_mode(ROTATE_R);
+          }
+          
+          else{
+            lf_set(display.line0, "DOWNHILL");
+            lf_set(motors.left_power, DOWNHILL_SPEED);
+            lf_set(motors.right_power, DOWNHILL_SPEED);
+          }  
+      =}
+  }
+
+    mode ROTATE_L{
+      reaction(tilt.roll) -> motors.left_power, motors.right_power, DRIVEDOWN, CONTINUE, DRIVINGFORWARD, display.line0 {=
+
+          lf_set(display.line0, "ROTATING LEFT");
+          lf_set(motors.left_power, -TURN_SPEED);
+          lf_set(motors.right_power, TURN_SPEED);
+
+          if (tilt.roll->value <= 1) {
+
+            if (self->goingDown){
+              lf_set_mode(DRIVEDOWN);
+            }else{
+              lf_set_mode(DRIVINGFORWARD);
+            }
+          }
+      =}
     }
-      
-      lf_set(disp.line3, "Orienting Up");
 
-      if (tilt.pitch->value > 0 && abs(tilt.roll->value) < 2.0f) {
-        lf_set(motorfeedback.left_speed, 0.0f);
-        lf_set(motorfeedback.right_speed, 0.0f);
-        lf_set_mode(DrivingUp);
-      }
-    =}
-  }
+    mode ROTATE_R{
+      reaction(tilt.roll) -> motors.left_power, motors.right_power, DRIVEDOWN, DRIVINGFORWARD, display.line0 {=
 
-// Third Driving up
-  mode DrivingUp {
-    reaction(angletodistL.encoder_dist_cm,angletodistR.encoder_dist_cm) tilt.roll,tilt.pitch,gyroangle.z,line.reflect-> TurningAround, AdjustRoll,Avoidingdrop,motorfeedback.left_speed, motorfeedback.right_speed, disp.line3 {=
-      lf_set(disp.line3, "Driving Up");
-      lf_set(motorfeedback.left_speed, 0.18f);
-      lf_set(motorfeedback.right_speed, 0.18f);
+          lf_set(display.line0, "ROTATING RIGHT");
+          lf_set(motors.left_power, TURN_SPEED);
+          lf_set(motors.right_power, -TURN_SPEED);
 
-      if (tilt.pitch->value < 5.0f) {
-        self->rel_0_angle = gyroangle.z->value;
+          if (tilt.roll->value >= -1) {
+            if (self->goingDown){
+              lf_set_mode(DRIVEDOWN);
+            }else{
+              lf_set_mode(DRIVINGFORWARD);
+            }
+          }
+      =}
+    }
 
-        lf_set(motorfeedback.left_speed, 0.0f);
-        lf_set(motorfeedback.right_speed, 0.0f);
-        lf_set_mode(TurningAround);
-      }
+    mode TURN_UPHILL{
+      reaction(t, angleToDistanceLeft.distance, angleToDistanceRight.distance, tilt.pitch) -> motors.left_power, motors.right_power, CONTINUE, DRIVINGFORWARD, display.line0 {=
+          if(self->gotUphill){
+            lf_set_mode(CONTINUE);
+          }
 
-      if (abs(tilt.roll->value) >= 2.0f) {
-        self->Driveup = true;
-        // lf_set(motorfeedback.left_speed, 0.0f);
-        // lf_set(motorfeedback.right_speed, 0.0f);
-        lf_set_mode(AdjustRoll);
-      }
+          lf_set(display.line0, "ROTATING UPHILL");
+          lf_set(motors.left_power, -TURN_SPEED);
+          lf_set(motors.right_power, TURN_SPEED);
 
-      if (line.reflect -> value[0] > 700 || line.reflect -> value[1] > 700 || line.reflect -> value[3] > 700 || line.reflect -> value[4] > 700) {
-        self->rel_0_dist = angletodistL.encoder_dist_cm->value;
-        self->Driveup = true;
-        lf_set(motorfeedback.left_speed, 0.10f);
-      lf_set(motorfeedback.right_speed, 0.10f);
-        lf_set_mode(Avoidingdrop);
-      }
+          if (tilt.pitch->value >= 12) {
+            self->gotUphill = true;
+            lf_set_mode(DRIVINGFORWARD);
+          }
+      =}
+    }
+    
+    mode TURNING_L {
+          reaction(t, angleToDistanceLeft.distance, angleToDistanceRight.distance, gyro.z) -> motors.left_power, motors.right_power, DRIVINGFORWARD, display.line0 {=
 
-    =}
-
-  }
-
-
-  mode TurningAround {
-    reaction(gyroangle.z) tilt.roll,tilt.pitch->  DrivingDown, motorfeedback.left_speed, motorfeedback.right_speed, disp.line2, disp.line3{=
-
-      // static char buf2[17];
-      // snprintf(buf2, 17, "yaw angle:%3.3f", gyroangle.z->value - self->rel_0_angle);
-      // lf_set(disp.line2, buf2);
-
-      lf_set(disp.line3, "TurnAround");
-      lf_set(motorfeedback.left_speed, -0.1f); 
-      lf_set(motorfeedback.right_speed, 0.1f);
-
-      // if (line.reflect -> value[0] > 700 || line.reflect -> value[1] > 700){
-      //     lf_set(motorfeedback.left_speed, -0.1f); 
-      //     lf_set(motorfeedback.right_speed, 0.1f);
-      // }
-      // else (line.reflect -> value[3] > 700 || line.reflect -> value[4] > 700){
-      //     lf_set(motorfeedback.left_speed, 0.1f); 
-      //     lf_set(motorfeedback.right_speed, -0.1f);
-      // }
-
-      if (abs(gyroangle.z->value - self->rel_0_angle) >= 100.0f && abs(tilt.roll->value)< 1.0f) {
-        lf_set(motorfeedback.left_speed, 0.0f);
-        lf_set(motorfeedback.right_speed, 0.0f);
-        lf_set_mode(DrivingDown); 
-      }    
-    =}
-  }
-
-  mode DrivingDown {
-    reaction(angletodistL.encoder_dist_cm,angletodistR.encoder_dist_cm) tilt.roll,tilt.pitch,line.reflect -> AdjustRoll,Avoidingdrop, motorfeedback.left_speed, motorfeedback.right_speed, disp.line3 {=
-      lf_set(disp.line3, "DrivingDown");
-      lf_set(motorfeedback.left_speed, 0.10f);
-      lf_set(motorfeedback.right_speed, 0.10f);
-      
-     if (abs(tilt.roll->value) >= 2.0f) {
-        self->Drivedown = true;
-        // lf_set(motorfeedback.left_speed, 0.0f);
-        // lf_set(motorfeedback.right_speed, 0.0f);
-        lf_set_mode(AdjustRoll);
-      }  
-      if (line.reflect -> value[0] > 700 || line.reflect -> value[1] > 700 || line.reflect -> value[3] > 700 || line.reflect -> value[4] > 700) {
-        self->rel_0_dist = angletodistL.encoder_dist_cm->value;
-        self->Drivedown = true;
-      lf_set(motorfeedback.left_speed, 0.10f);
-      lf_set(motorfeedback.right_speed, 0.10f);
-        lf_set_mode(Avoidingdrop);
+              lf_set(display.line0, "Turning Left");
+              lf_set(motors.left_power, -TURN_SPEED);
+              lf_set(motors.right_power, TURN_SPEED);
+    
+              if (fabs(gyro.z->value - self->lastAngle) >= TURN_ANGLE) {
+                resett(angleToDistanceLeft.distance->value, angleToDistanceRight.distance->value, gyro.z->value);
+                  lf_set_mode(DRIVINGFORWARD);
+              }
+          =}
+ 
+    
       }
     
-    =}
+      mode TURNING_R {
+        reaction(t, angleToDistanceLeft.distance, angleToDistanceRight.distance, gyro.z) -> motors.left_power, motors.right_power, DRIVINGFORWARD, display.line0 {=
 
-  }
-
-  mode AdjustRoll {
-    reaction(tilt.roll)->  DrivingUp, DrivingDown, motorfeedback.left_speed, motorfeedback.right_speed,  disp.line3{=
-
-      lf_set(disp.line3, "AdjustRoll");
-
-      if (tilt.roll->value > 0 && self->Driveup) {
-      lf_set(motorfeedback.left_speed, 0.12f);
-      lf_set(motorfeedback.right_speed, 0.18f);
-    }
-      else if  (tilt.roll->value  < 0 && self->Driveup) {
-      lf_set(motorfeedback.left_speed, 0.18f);
-      lf_set(motorfeedback.right_speed, 0.12f);
+            lf_set(display.line0, "Turning Right");
+            lf_set(motors.left_power, TURN_SPEED);
+            lf_set(motors.right_power, -TURN_SPEED);
+    
+            if (fabs(gyro.z->value - self->lastAngle) >= TURN_ANGLE) {
+                resett(angleToDistanceLeft.distance->value, angleToDistanceRight.distance->value, gyro.z->value);
+                lf_set_mode(DRIVINGFORWARD);
+            }
+        =}
+    
     }
 
-    if (tilt.roll->value > 0 && self->Drivedown) {
-      lf_set(motorfeedback.right_speed, 0.07f);
-      lf_set(motorfeedback.left_speed, 0.10f);
-    }
-    else if  (tilt.roll->value < 0 && self->Drivedown) {
-      lf_set(motorfeedback.right_speed, 0.10f);
-      lf_set(motorfeedback.left_speed, 0.07f);
-    }
+    mode TURN_AROUND {
+        reaction(t, angleToDistanceLeft.distance, angleToDistanceRight.distance, gyro.z) -> motors.left_power, motors.right_power, DRIVEDOWN, display.line0 {=
 
-      if (abs(tilt.roll->value) < 2.0f) {
-        // lf_set(motorfeedback.left_speed, 0.0f);
-        // lf_set(motorfeedback.right_speed, 0.0f);
-
-        if(self->Driveup){
-          lf_set_mode(DrivingUp);
-          self->Driveup = false;
-        }
-        else if(self->Drivedown){
-          lf_set_mode(DrivingDown);
-          self->Drivedown = false;
-        }
-      }
+              lf_set(display.line0, "Turning Around");
+              lf_set(motors.left_power, TURN_SPEED);
+              lf_set(motors.right_power, -TURN_SPEED);
       
-    =}
-  }
+              if (fabs(gyro.z->value - self->lastAngle) >= 160) {
+                  resett(angleToDistanceLeft.distance->value, angleToDistanceRight.distance->value, gyro.z->value);
+                  self->goingDown = true;
 
-  mode Avoidingdrop {
+                  lf_set_mode(DRIVEDOWN);
+              }
+          =}
+    }
 
-    reaction(angletodistL.encoder_dist_cm,angletodistR.encoder_dist_cm) ->  DrivingUp, DrivingDown, motorfeedback.left_speed, motorfeedback.right_speed, disp.line3{=
+    mode CONTINUE {
+      reaction(t, angleToDistanceLeft.distance, angleToDistanceRight.distance) gyro.z -> ROTATE_L, motors.left_power, motors.right_power, TURN_AROUND, display.line0 {=
+              lf_set(motors.left_power, FORWARD_SPEED);
+              lf_set(motors.right_power, FORWARD_SPEED);
+              lf_set(display.line0, "CONTINUE");
+              if (angleToDistanceLeft.distance->value - self->lastLeft >= CONTINUE_DIST && angleToDistanceRight.distance->value - self->lastRight >= CONTINUE_DIST) {
 
-      lf_set(disp.line3, "Avoidingdrop");
-      lf_set(motorfeedback.left_speed, -0.05f); 
-      lf_set(motorfeedback.right_speed, -0.05f);
+                resett(angleToDistanceLeft.distance->value, angleToDistanceRight.distance->value, gyro.z->value);
+                lf_set_mode(TURN_AROUND);
+              }
+      =}
       
-      if ((angletodistL.encoder_dist_cm->value - self->rel_0_dist) >= 1.0) {
-
-        if(self->Driveup){
-          lf_set_mode(DrivingUp);
-          self->Driveup = false;
-        }
-        else if(self->Drivedown){
-          lf_set_mode(DrivingDown);
-          self->Drivedown = false;
-        }
-      }
-      
-    =}
-
   }
-
-}
+  }

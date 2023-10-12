@@ -1,42 +1,40 @@
-/**
- * Library reactors for the IMU on the 
- * <a href="https://www.pololu.com/docs/0J86">Pololu 3pi+ 2040 robot</a>.
- * Note that these reactors rely on the fact that they are executed in an unthreaded
- * runtime. To adapt them for a threaded runtime, they will need to use mutual
- * exclusion to ensure that multiple instances of the reactors are not simultaneously
- * accessing the shared hardware resource.
- * 
- * @author Abhi Gundrala
- * @author Edward A. Lee
- */
- target C {
+target C {
     platform: {
       name: "rp2040",
       board: "pololu_3pi_2040_robot"
     },
-    threading: false,
-  }
-  
+    threading: false
+   }
+
   preamble {=
     #include <pico/stdlib.h>
+    #include <imu.h>
     #include <math.h>
   =}
-  
-  reactor Tilt {
 
-    output pitch:float;
-    output roll:float;
+
+reactor Tilt{
+
 
     input x:float;
     input y:float;
     input z:float;
 
-    reaction(x, y, z) -> pitch, roll {=
+    output pitch:float;
+    output roll:float;
 
-        lf_set(pitch, atanf(x->value/sqrtf(y->value*y->value + z->value*z->value))* 180 / M_PI);
-        lf_set(roll, atanf(y->value/sqrtf(x->value*x->value + z->value*z->value))* 180 / M_PI);
+    reaction(x,y,z) -> pitch, roll {=
 
+        float x_val = x->value;
+        float y_val = y->value;
+        float z_val = z->value;
+        
+        // float r_val = atan2(y_val, z_val) * 180 / M_PI;
+        float r_val = atan2(y_val, sqrt(x_val*x_val+z_val*z_val)) * 180 / M_PI;
+        float p_val = atan2(x_val, sqrt(y_val*y_val+z_val*z_val)) * 180 / M_PI;
+
+        lf_set(roll, r_val);
+        lf_set(pitch, p_val);
+       
     =}
-  }
-
-  
+}
