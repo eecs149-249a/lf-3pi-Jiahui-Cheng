@@ -33,15 +33,8 @@
 
     reaction(x, y, z) -> pitch, roll {=
 
-        float x_val = x->value;
-        float y_val = y->value;
-        float z_val = z->value;
-
-        float roll_val = atan2(y_val, sqrt(x_val*x_val+z_val*z_val)) * 180 / M_PI;
-        float pitch_val = atan2(x_val, sqrt(y_val*y_val+z_val*z_val)) * 180 / M_PI;
-
-        lf_set(roll, roll_val);
-        lf_set(pitch, pitch_val);
+        lf_set(pitch, atanf(x->value/sqrtf(y->value*y->value + z->value*z->value))* 180 / M_PI);
+        lf_set(roll, atanf(y->value/sqrtf(x->value*x->value + z->value*z->value))* 180 / M_PI);
 
     =}
   }
