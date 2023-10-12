@@ -5,7 +5,7 @@ target C {
     },
     threading: false,
   }
-  
+
   import Line from "lib/Line.lf"
   import Display from "lib/Display.lf"
   import Motors from "lib/Motors.lf"
@@ -21,20 +21,20 @@ target C {
 reactor AngleToDistance {
     input angle:int32_t;
     output distance:float;
-  
+
     reaction(angle) -> distance {=
         float circumference = PI * WHEEL_DIAMETER;
         float distanceTraveled = (angle->value / 360.0) * circumference;
         lf_set(distance, distanceTraveled);
     =}
   }
-  
+
   main reactor(calibration_time: time = 10 s, sample_period: time = 100 ms) {
     preamble {=
-        #define UPHILL_SPEED 0.17
+        #define UPHILL_SPEED 0.18
         #define DOWNHILL_SPEED 0.07
         #define FORWARD_SPEED 0.15
-        #define TURN_SPEED 0.10
+        #define TURN_SPEED 0.13
         #define TURN_ANGLE 15.0
         #define DRIVE_DISTANCE 0.5 
         #define BACKUP_DISTANCE 0.01
@@ -59,7 +59,7 @@ reactor AngleToDistance {
     state didTurn: bool = false;
     state gotUphill: bool = false;
     state goingDown: bool = false;
-  
+
     state lastAngle: float = 0.0;
     state lastLeft: float = 0.0;
     state lastRight: float = 0.0;
@@ -73,32 +73,33 @@ reactor AngleToDistance {
     timer seconds(0, 1 s)
     timer end_calibration(calibration_time)
     state count: int = 0
-  
+
     method resett(ld: float, lr: float, la: float) {=
       self->lastLeft = ld;
       self->lastRight = lr;
       self->lastAngle = la;
     =}
 
+//Trigger sensors
     reaction(t) -> a.trigger, gyro.trigger, encoders.trigger {=
         lf_set(gyro.trigger, true);
         lf_set(a.trigger, true);
         lf_set(encoders.trigger, true);
     =}
 
-
+//Calculate angles
     encoders.left -> angleToDistanceLeft.angle
     encoders.right -> angleToDistanceRight.angle
 
-    
+//Start up doing calibration
     reaction(startup) -> display.line0, display.line1, display.line2 {=
       lf_set(display.line0, "CALIBRATING");
       lf_set(display.line1, "Roll robot over");
       lf_set(display.line2, "light and dark.");
     =}
-  
 
 
+//calibrate tilt
     reaction(a.x, a.y, a.z) ->tilt.x, tilt.y, tilt.z {=
         float x = 1.04 * a.x->value - 0.026;
         float y = 0.99 * a.y->value + 0.003;
@@ -109,6 +110,7 @@ reactor AngleToDistance {
         lf_set(tilt.z, z);
     =}
 
+//display tilt
     reaction(tilt.pitch, tilt.roll) -> display.line2, display.line1 {=
         static char buf0[17];
         static char buf1[17];
@@ -116,10 +118,11 @@ reactor AngleToDistance {
         snprintf(buf0, 17, "roll:%2.4f", tilt.roll->value);
         snprintf(buf1, 17, "pitch:%2.4f", tilt.pitch->value);
 
-        
+
         lf_set(display.line2, buf0);
         lf_set(display.line1, buf1);
     =}
+
 
     initial mode DRIVINGFORWARD {
 
@@ -140,7 +143,7 @@ reactor AngleToDistance {
               lf_set(motors.right_power, 0);
               lf_set_mode(ROTATE_L);
             }
-            
+
             else{
               lf_set(display.line0, "UPHILL");
               self->gotUphill = true;
@@ -165,7 +168,7 @@ reactor AngleToDistance {
             lf_set(motors.right_power, 0);
             lf_set_mode(ROTATE_R);
           }
-          
+
           else{
             lf_set(display.line0, "DOWNHILL");
             lf_set(motors.left_power, DOWNHILL_SPEED);
@@ -175,13 +178,14 @@ reactor AngleToDistance {
   }
 
     mode ROTATE_L{
-      reaction(tilt.roll) -> motors.left_power, motors.right_power, DRIVEDOWN, DRIVINGFORWARD, display.line0 {=
+      reaction(tilt.roll) -> motors.left_power, motors.right_power, DRIVEDOWN, CONTINUE, DRIVINGFORWARD, display.line0 {=
 
           lf_set(display.line0, "ROTATING LEFT");
           lf_set(motors.left_power, -TURN_SPEED);
           lf_set(motors.right_power, TURN_SPEED);
 
           if (tilt.roll->value <= 1) {
+
             if (self->goingDown){
               lf_set_mode(DRIVEDOWN);
             }else{
@@ -191,7 +195,7 @@ reactor AngleToDistance {
       =}
     }
 
-    mode ROTATE_R{
+    mode ROTATE_R{    
       reaction(tilt.roll) -> motors.left_power, motors.right_power, DRIVEDOWN, DRIVINGFORWARD, display.line0 {=
 
           lf_set(display.line0, "ROTATING RIGHT");
@@ -224,36 +228,36 @@ reactor AngleToDistance {
           }
       =}
     }
-    
+
     mode TURNING_L {
           reaction(t, angleToDistanceLeft.distance, angleToDistanceRight.distance, gyro.z) -> motors.left_power, motors.right_power, DRIVINGFORWARD, display.line0 {=
 
               lf_set(display.line0, "Turning Left");
               lf_set(motors.left_power, -TURN_SPEED);
               lf_set(motors.right_power, TURN_SPEED);
-    
+
               if (fabs(gyro.z->value - self->lastAngle) >= TURN_ANGLE) {
                 resett(angleToDistanceLeft.distance->value, angleToDistanceRight.distance->value, gyro.z->value);
                   lf_set_mode(DRIVINGFORWARD);
               }
           =}
- 
-    
+
+
       }
-    
+
       mode TURNING_R {
         reaction(t, angleToDistanceLeft.distance, angleToDistanceRight.distance, gyro.z) -> motors.left_power, motors.right_power, DRIVINGFORWARD, display.line0 {=
 
             lf_set(display.line0, "Turning Right");
             lf_set(motors.left_power, TURN_SPEED);
             lf_set(motors.right_power, -TURN_SPEED);
-    
+
             if (fabs(gyro.z->value - self->lastAngle) >= TURN_ANGLE) {
                 resett(angleToDistanceLeft.distance->value, angleToDistanceRight.distance->value, gyro.z->value);
                 lf_set_mode(DRIVINGFORWARD);
             }
         =}
-    
+
     }
 
     mode TURN_AROUND {
@@ -262,7 +266,7 @@ reactor AngleToDistance {
               lf_set(display.line0, "Turning Around");
               lf_set(motors.left_power, TURN_SPEED);
               lf_set(motors.right_power, -TURN_SPEED);
-      
+
               if (fabs(gyro.z->value - self->lastAngle) >= 160) {
                   resett(angleToDistanceLeft.distance->value, angleToDistanceRight.distance->value, gyro.z->value);
                   self->goingDown = true;
@@ -273,7 +277,7 @@ reactor AngleToDistance {
     }
 
     mode CONTINUE {
-      reaction(t, angleToDistanceLeft.distance, angleToDistanceRight.distance) gyro.z -> motors.left_power, motors.right_power, TURN_AROUND, display.line0 {=
+      reaction(t, angleToDistanceLeft.distance, angleToDistanceRight.distance) gyro.z -> ROTATE_L, motors.left_power, motors.right_power, TURN_AROUND, display.line0 {=
               lf_set(motors.left_power, FORWARD_SPEED);
               lf_set(motors.right_power, FORWARD_SPEED);
               lf_set(display.line0, "CONTINUE");
@@ -283,6 +287,6 @@ reactor AngleToDistance {
                 lf_set_mode(TURN_AROUND);
               }
       =}
-      
+
   }
   }
