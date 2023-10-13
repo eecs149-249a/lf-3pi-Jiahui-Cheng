@@ -149,7 +149,7 @@ main reactor(calibration_time: time = 10 s, sample_period: time = 100 ms) {
         lf_set_mode(AdjustRoll);
       }
 
-      if (line.reflect -> value[0] > 700 || line.reflect -> value[1] > 700 || line.reflect -> value[3] > 700 || line.reflect -> value[4] > 700) {
+      if ((line.reflect -> value[0] > 900 && line.reflect -> value[1] > 900) || (line.reflect -> value[3] > 900 && line.reflect -> value[4] > 900)) {
         self->rel_0_dist = angletodistL.encoder_dist_cm->value;
         self->Driveup = true;
         lf_set(motorfeedback.left_speed, 0.10f);
@@ -186,7 +186,15 @@ main reactor(calibration_time: time = 10 s, sample_period: time = 100 ms) {
         lf_set(motorfeedback.left_speed, 0.0f);
         lf_set(motorfeedback.right_speed, 0.0f);
         lf_set_mode(DrivingDown); 
-      }    
+      }  
+
+      if ((line.reflect -> value[0] > 900 && line.reflect -> value[1] > 900) || (line.reflect -> value[3] > 900 && line.reflect -> value[4] > 900)) {
+        self->rel_0_dist = angletodistL.encoder_dist_cm->value;
+        self->Turnaround = true;
+      lf_set(motorfeedback.left_speed, 0.10f);
+      lf_set(motorfeedback.right_speed, 0.10f);
+        lf_set_mode(Avoidingdrop);
+      }  
     =}
   }
 
@@ -202,7 +210,7 @@ main reactor(calibration_time: time = 10 s, sample_period: time = 100 ms) {
         // lf_set(motorfeedback.right_speed, 0.0f);
         lf_set_mode(AdjustRoll);
       }  
-      if (line.reflect -> value[0] > 700 || line.reflect -> value[1] > 700 || line.reflect -> value[3] > 700 || line.reflect -> value[4] > 700) {
+      if ((line.reflect -> value[0] > 900 && line.reflect -> value[1] > 900) || (line.reflect -> value[3] > 900 && line.reflect -> value[4] > 900)) {
         self->rel_0_dist = angletodistL.encoder_dist_cm->value;
         self->Drivedown = true;
       lf_set(motorfeedback.left_speed, 0.10f);
@@ -221,20 +229,20 @@ main reactor(calibration_time: time = 10 s, sample_period: time = 100 ms) {
 
       if (tilt.roll->value > 0 && self->Driveup) {
       lf_set(motorfeedback.left_speed, 0.12f);
-      lf_set(motorfeedback.right_speed, 0.18f);
+      lf_set(motorfeedback.right_speed, 0.20f);
     }
       else if  (tilt.roll->value  < 0 && self->Driveup) {
-      lf_set(motorfeedback.left_speed, 0.18f);
+      lf_set(motorfeedback.left_speed, 0.20f);
       lf_set(motorfeedback.right_speed, 0.12f);
     }
 
     if (tilt.roll->value > 0 && self->Drivedown) {
-      lf_set(motorfeedback.right_speed, 0.07f);
-      lf_set(motorfeedback.left_speed, 0.10f);
+      lf_set(motorfeedback.right_speed, 0.06f);
+      lf_set(motorfeedback.left_speed, 0.12f);
     }
     else if  (tilt.roll->value < 0 && self->Drivedown) {
-      lf_set(motorfeedback.right_speed, 0.10f);
-      lf_set(motorfeedback.left_speed, 0.07f);
+      lf_set(motorfeedback.right_speed, 0.12f);
+      lf_set(motorfeedback.left_speed, 0.06f);
     }
 
       if (abs(tilt.roll->value) < 2.0f) {
@@ -262,7 +270,7 @@ main reactor(calibration_time: time = 10 s, sample_period: time = 100 ms) {
       lf_set(motorfeedback.left_speed, -0.05f); 
       lf_set(motorfeedback.right_speed, -0.05f);
       
-      if ((angletodistL.encoder_dist_cm->value - self->rel_0_dist) >= 1.0) {
+      if (abs(angletodistL.encoder_dist_cm->value - self->rel_0_dist) >= 1.0) {
 
         if(self->Driveup){
           lf_set_mode(DrivingUp);
@@ -271,6 +279,10 @@ main reactor(calibration_time: time = 10 s, sample_period: time = 100 ms) {
         else if(self->Drivedown){
           lf_set_mode(DrivingDown);
           self->Drivedown = false;
+        }
+        else if(self->Turnaround){
+          lf_set_mode(TurningAround);
+          self->Turnaround = false;
         }
       }
       
