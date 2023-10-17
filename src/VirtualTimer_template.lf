@@ -8,7 +8,7 @@ preamble {=
   #include <hardware/gpio.h>
   #include <pico/stdlib.h>
   #define ALARM_NUM 0
-  #define ALARM_IRQ TIMERIRQ_0
+  #define ALARM_IRQ TIMER_IRQ_0
 =}
 
 main reactor {
@@ -21,10 +21,7 @@ main reactor {
       /* Put the variables needed for linked list node here */
       // value for the timer
       uint32_t timer_value;
-
-      /*********************************************
-          DO NOT CHANGE THE CODE BELOW
-      *********************************************/
+      void (*callback_func)(void);
       // next node pointer
       struct node_t * next ;
       } node_t ;
@@ -93,11 +90,19 @@ main reactor {
 
     /* You can also create your own linked list functions here. */
 
+    void timer_callback_func(void){
+        node_t* t = malloc(sizeof(node_t));
+        t->timer_value = 2;
+        t->callback_func = &timer_callback_func;
+        list_insert_sorted(t);
+
+    }
+
     void lab5_timer_irq_handler(void){
         //Clear the alarm irq
         hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
         //Alarm 0 has fired
-        printf("Timer Fired!")
+        // printf("Timer Fired!");
     }
     void virtual_timer_init(void){
         //Enable the interrupt for our alarm
@@ -110,6 +115,7 @@ main reactor {
     uint32_t virtual_timer_start(uint32_t microseconds, virtual_timer_callback_t cb){
         uint64_t target = timer_hw->timerawl + microseconds;
         timer_hw->alarm[ALARM_NUM] = (uint32_t) target;
+        return target;
     }
 
 
@@ -123,7 +129,7 @@ main reactor {
   =}
 
 
-  timer print_hw_timer(0, 5000ms)
+  timer print_hw_timer(0, 1000ms)
   state get_time: uint64_t = 0;
 
   reaction(startup) {=
@@ -135,9 +141,9 @@ main reactor {
   =}
   
   reaction(print_hw_timer){=
-      uint32_t low = timer_hw->timelr;
-      uint32_t high = timer_hw->timehr;
-      self-> get_time = (high << 32u) | low;
+    //   uint32_t low = timer_hw->timelr;
+    //   uint32_t high = timer_hw->timehr;
+      self-> get_time = (timer_hw->timehr << 32u) | timer_hw->timelr;
       printf("Read timer value: %9d us.\n",self-> get_time);
   =}
 
