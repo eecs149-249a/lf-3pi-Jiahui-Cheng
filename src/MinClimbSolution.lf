@@ -163,14 +163,6 @@ main reactor(calibration_time: time = 10 s, sample_period: time = 100 ms) {
     =}
     }
         
-    // reaction(tilt.pitch) -> motor.left_power, motor.right_power, disp.line3 {=
-    //   if (tilt.pitch->value < 0.005f) {
-    //     lf_set(motor.left_power, 0.0f);
-    //     lf_set(motor.right_power, 0.0f);
-    //     lf_set(disp.line3, "Complete!");
-    //   }
-      
-    // =}
 }
   
   
