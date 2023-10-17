@@ -1,11 +1,11 @@
 target C {
-    platform: {
-      name: "rp2040",
-      board: "pololu_3pi_2040_robot"
-    },
-    threading: false,
-  }
-  
+  platform: {
+    name: "rp2040",
+    board: "pololu_3pi_2040_robot"
+  },
+  threading: false,
+}
+
 // import Motors from "lib/Motors.lf"
 import Line from "lib/Line.lf"
 import Display from "lib/Display.lf"
@@ -17,296 +17,296 @@ import Tilt from "lib/Tilt.lf"
 import Accelerometer from "lib/IMU.lf"
 
 main reactor(calibration_time: time = 5 s, sample_period: time = 100 ms) {
-  // motor = new Motors()
-  line = new Line()
-  disp = new Display()
-  gyroangle = new GyroAngle()
-  encoder = new Encoders()
-  accelerometer = new Accelerometer()
-  tilt = new Tilt()
-  angletodistL = new AngleToDistance()
-  angletodistR = new AngleToDistance()
+// motor = new Motors()
+line = new Line()
+disp = new Display()
+gyroangle = new GyroAngle()
+encoder = new Encoders()
+accelerometer = new Accelerometer()
+tilt = new Tilt()
+angletodistL = new AngleToDistance()
+angletodistR = new AngleToDistance()
 
-  motorfeedback = new MotorsWithFeedback()
-  
+motorfeedback = new MotorsWithFeedback()
 
-  timer t(0, sample_period)
-  timer seconds(0, 1 s)
-  timer end_calibration(calibration_time)
 
-  timer t2(0, 250 ms)
+timer t(0, sample_period)
+timer seconds(0, 1 s)
+timer end_calibration(calibration_time)
 
-  state rel_0_angle:float = 0;
-  state rel_0_dist:float = 0;
+timer t2(0, 250 ms)
 
-  state Driveup: bool = false;
-  state Drivedown: bool = false;
-  state Turnaround: bool = false;
-  state Haveavoid: bool = false;
+state rel_0_angle:float = 0;
+state rel_0_dist:float = 0;
+
+state Driveup: bool = false;
+state Drivedown: bool = false;
+state Turnaround: bool = false;
+state Haveavoid: bool = false;
 
 //Line Sensor Calibration
-  reaction(startup) -> disp.line3 {=
-    lf_set(disp.line3, "CALIBRATING");
-  =}
+reaction(startup) -> disp.line3 {=
+  lf_set(disp.line3, "CALIBRATING");
+=}
 // Line Sensor Trigger
-  reaction(t) -> line.trigger {=
-  lf_set(line.trigger, true);
-  =}
+reaction(t) -> line.trigger {=
+lf_set(line.trigger, true);
+=}
 
 // Sensor Trigger
-  reaction(t2) -> encoder.trigger, gyroangle.trigger,accelerometer.trigger{=
-    lf_set(encoder.trigger, true);
-    lf_set(gyroangle.trigger,true);
-    lf_set(accelerometer.trigger, true);
-    =}
+reaction(t2) -> encoder.trigger, gyroangle.trigger,accelerometer.trigger{=
+  lf_set(encoder.trigger, true);
+  lf_set(gyroangle.trigger,true);
+  lf_set(accelerometer.trigger, true);
+  =}
 
 //Calculate DIstance
-  reaction(t2)encoder.left ->  angletodistL.encoder_reading, motorfeedback.left {=
-    lf_set(angletodistL.encoder_reading, encoder.left->value); //Input to AngleToDist
+reaction(t2)encoder.left ->  angletodistL.encoder_reading, motorfeedback.left {=
+  lf_set(angletodistL.encoder_reading, encoder.left->value); //Input to AngleToDist
 
-    lf_set(motorfeedback.left, encoder.left->value); //Input to Motors with Feedback
-  =}
-  reaction(t2)encoder.right ->  angletodistR.encoder_reading, motorfeedback.right {=
-    lf_set(angletodistR.encoder_reading, encoder.right->value); //Input to AngleToDist
+  lf_set(motorfeedback.left, encoder.left->value); //Input to Motors with Feedback
+=}
+reaction(t2)encoder.right ->  angletodistR.encoder_reading, motorfeedback.right {=
+  lf_set(angletodistR.encoder_reading, encoder.right->value); //Input to AngleToDist
 
-    lf_set(motorfeedback.right, encoder.right->value); //Input to Motors with Feedback
-  =}
+  lf_set(motorfeedback.right, encoder.right->value); //Input to Motors with Feedback
+=}
 
-  //Calibrate tilt
-  reaction(accelerometer.x, accelerometer.y, accelerometer.z) ->  tilt.x, tilt.y, tilt.z {=
-    // static float bx = -0.018;
-    // static float by = -0.0275;2
-    // static float bz = 0.0;
-    // static float mz = 1.0;
-    // static float my = 0.987 + 0.0275;
-    // static float mx = 0.998;
-    lf_set(tilt.x, accelerometer.x->value);
-    lf_set(tilt.y, accelerometer.y->value);
-    lf_set(tilt.z, accelerometer.z->value);
-  =}
+//Calibrate tilt
+reaction(accelerometer.x, accelerometer.y, accelerometer.z) ->  tilt.x, tilt.y, tilt.z {=
+  // static float bx = -0.018;
+  // static float by = -0.0275;2
+  // static float bz = 0.0;
+  // static float mz = 1.0;
+  // static float my = 0.987 + 0.0275;
+  // static float mx = 0.998;
+  lf_set(tilt.x, accelerometer.x->value);
+  lf_set(tilt.y, accelerometer.y->value);
+  lf_set(tilt.z, accelerometer.z->value);
+=}
 
-  //Display pitch and roll
-  reaction(tilt.pitch, tilt.roll) -> disp.line0, disp.line1 {=
-    static char buf0[17];
-    snprintf(buf0, 17, "pitch:%3.3f", tilt.pitch->value);
-    lf_set(disp.line0, buf0);
+//Display pitch and roll
+reaction(tilt.pitch, tilt.roll) -> disp.line0, disp.line1 {=
+  static char buf0[17];
+  snprintf(buf0, 17, "pitch:%3.3f", tilt.pitch->value);
+  lf_set(disp.line0, buf0);
 
-    static char buf1[17];
-    snprintf(buf1, 17, "roll:%3.3f", tilt.roll->value);
-    lf_set(disp.line1, buf1);
-  =}
+  static char buf1[17];
+  snprintf(buf1, 17, "roll:%3.3f", tilt.roll->value);
+  lf_set(disp.line1, buf1);
+=}
 
 //First calibration
-  initial mode Calibrating {
-    reaction(accelerometer.x) -> disp.line0 {=
-      static char buf[17];
-      snprintf(buf, 17, "x: %.1f", accelerometer.x->value);
-      lf_set(disp.line0, buf);
-    =}
-  
-    reaction(accelerometer.y) -> disp.line1 {=
-      static char buf[17];
-      snprintf(buf, 17, "y: %.1f", accelerometer.y->value);
-      lf_set(disp.line1, buf);
-    =}
-  
-    reaction(accelerometer.z) -> disp.line2 {=
-      static char buf[17];
-      snprintf(buf, 17, "z: %.1f", accelerometer.z->value);
-      lf_set(disp.line2, buf);
-    =}
+initial mode Calibrating {
+  reaction(accelerometer.x) -> disp.line0 {=
+    static char buf[17];
+    snprintf(buf, 17, "x: %.1f", accelerometer.x->value);
+    lf_set(disp.line0, buf);
+  =}
 
-    reaction(end_calibration) -> OrientingUp,line.calibrate {=
-      lf_set(line.calibrate, false);
-      lf_set_mode(OrientingUp);
-    =}
+  reaction(accelerometer.y) -> disp.line1 {=
+    static char buf[17];
+    snprintf(buf, 17, "y: %.1f", accelerometer.y->value);
+    lf_set(disp.line1, buf);
+  =}
+
+  reaction(accelerometer.z) -> disp.line2 {=
+    static char buf[17];
+    snprintf(buf, 17, "z: %.1f", accelerometer.z->value);
+    lf_set(disp.line2, buf);
+  =}
+
+  reaction(end_calibration) -> OrientingUp,line.calibrate {=
+    lf_set(line.calibrate, false);
+    lf_set_mode(OrientingUp);
+  =}
+}
+
+// Second Orientation
+mode OrientingUp {
+  reaction(tilt.pitch, tilt.roll) -> DrivingUp, motorfeedback.left_speed, motorfeedback.right_speed, disp.line3 {=
+
+  if (tilt.pitch->value > 0 && tilt.roll->value > 0){
+    lf_set(motorfeedback.left_speed, 0.06f);
+    lf_set(motorfeedback.right_speed, 0.12f);
   }
-  
-  // Second Orientation
-  mode OrientingUp {
-    reaction(tilt.pitch, tilt.roll) -> DrivingUp, motorfeedback.left_speed, motorfeedback.right_speed, disp.line3 {=
-
-    if (tilt.pitch->value > 0 && tilt.roll->value > 0){
-      lf_set(motorfeedback.left_speed, 0.06f);
-      lf_set(motorfeedback.right_speed, 0.12f);
-    }
-    else if (tilt.pitch->value > 0 && tilt.roll->value < 0) {
-      lf_set(motorfeedback.left_speed, 0.12f);
-      lf_set(motorfeedback.right_speed, 0.06f);
-    }
-    else if (tilt.pitch->value < 0 && tilt.roll->value < 0){
-      lf_set(motorfeedback.left_speed, 0.06f);
-      lf_set(motorfeedback.right_speed, -0.06f);
-    }
-    else if (tilt.pitch->value < 0 && tilt.roll->value >0) {
-      lf_set(motorfeedback.left_speed, -0.06f);
-      lf_set(motorfeedback.right_speed, 0.06f);
-    }
-      
-      lf_set(disp.line3, "Orienting Up");
-
-      if (tilt.pitch->value > 0 && abs(tilt.roll->value) < 1.5f) {
-        lf_set_mode(DrivingUp);
-      }
-    =}
+  else if (tilt.pitch->value > 0 && tilt.roll->value < 0) {
+    lf_set(motorfeedback.left_speed, 0.12f);
+    lf_set(motorfeedback.right_speed, 0.06f);
   }
+  else if (tilt.pitch->value < 0 && tilt.roll->value < 0){
+    lf_set(motorfeedback.left_speed, 0.06f);
+    lf_set(motorfeedback.right_speed, -0.06f);
+  }
+  else if (tilt.pitch->value < 0 && tilt.roll->value >0) {
+    lf_set(motorfeedback.left_speed, -0.06f);
+    lf_set(motorfeedback.right_speed, 0.06f);
+  }
+    
+    lf_set(disp.line3, "Orienting Up");
+
+    if (tilt.pitch->value > 0 && abs(tilt.roll->value) < 1.5f) {
+      lf_set_mode(DrivingUp);
+    }
+  =}
+}
 
 // Third Driving up
-  mode DrivingUp {
-    reaction(angletodistL.encoder_dist_cm,angletodistR.encoder_dist_cm) tilt.roll,tilt.pitch,gyroangle.z,line.reflect-> TurningAround, AdjustRoll,motorfeedback.left_speed, motorfeedback.right_speed, disp.line3 {=
-      lf_set(disp.line3, "Driving Up");
-      lf_set(motorfeedback.left_speed, 0.15f);
-      lf_set(motorfeedback.right_speed, 0.15f);
+mode DrivingUp {
+  reaction(angletodistL.encoder_dist_cm,angletodistR.encoder_dist_cm) tilt.roll,tilt.pitch,gyroangle.z,line.reflect-> TurningAround, AdjustRoll,motorfeedback.left_speed, motorfeedback.right_speed, disp.line3 {=
+    lf_set(disp.line3, "Driving Up");
+    lf_set(motorfeedback.left_speed, 0.15f);
+    lf_set(motorfeedback.right_speed, 0.15f);
 
-      if (tilt.pitch->value < 4.0f) {
-        self->rel_0_angle = gyroangle.z->value;
+    if (tilt.pitch->value < 4.0f) {
+      self->rel_0_angle = gyroangle.z->value;
+      lf_set_mode(TurningAround);
+    }
+
+    else{
+      if (abs(tilt.roll->value) >= 1.5f) {
+      self->Driveup = true;
+      lf_set_mode(AdjustRoll);
+    }
+    }
+
+  =}
+
+}
+
+
+mode TurningAround {
+  reaction(gyroangle.z) tilt.roll,tilt.pitch,line.reflect,angletodistL.encoder_dist_cm-> Pause, Avoidingdrop,motorfeedback.left_speed, motorfeedback.right_speed, disp.line2, disp.line3{=
+
+    static char buf2[17];
+    snprintf(buf2, 17, "yaw angle:%3.3f", gyroangle.z->value - self->rel_0_angle);
+    lf_set(disp.line2, buf2);
+
+    lf_set(disp.line3, "TurnAround");
+    
+     lf_set(motorfeedback.left_speed, -0.06f); 
+     lf_set(motorfeedback.right_speed, 0.08f);
+  
+
+    if (abs(gyroangle.z->value - self->rel_0_angle) >= 140.0f ) {
+      // lf_set(motorfeedback.left_speed, 0.00f);
+      // lf_set(motorfeedback.right_speed, 0.00f);
+      lf_set_mode(Pause); 
+    }  
+
+    if ( line.reflect -> value[0] > 700 || line.reflect -> value[1] > 700 ) {
+      self->rel_0_dist = angletodistL.encoder_dist_cm->value;
+      self->Turnaround = true;
+      lf_set_mode(Avoidingdrop);
+    }  
+  =}
+}
+
+mode DrivingDown {
+  reaction(angletodistL.encoder_dist_cm,angletodistR.encoder_dist_cm) tilt.roll,tilt.pitch,line.reflect -> AdjustRoll, Avoidingdrop,motorfeedback.left_speed, motorfeedback.right_speed, disp.line3 {=
+    lf_set(disp.line3, "DrivingDown");
+
+   if (abs(tilt.pitch->value) < 6.0f) {
+    lf_set(motorfeedback.left_speed, 0.12f);
+    lf_set(motorfeedback.right_speed, 0.08f);
+   }
+   else {
+    lf_set(motorfeedback.left_speed, 0.10f);
+    lf_set(motorfeedback.right_speed, 0.10f);
+  }
+
+  
+    if ((line.reflect -> value[3] > 700 && line.reflect -> value[4] > 700 )||(line.reflect -> value[0] > 700 && line.reflect -> value[1] > 700 )){
+      self->rel_0_dist = angletodistL.encoder_dist_cm->value;
+      self->Drivedown = true;
+      lf_set_mode(Avoidingdrop);
+    }
+  
+
+   if (abs(tilt.roll->value) >= 1.5f) {
+      self->Drivedown = true;
+      lf_set_mode(AdjustRoll);
+    } 
+  
+  =}
+
+}
+
+mode AdjustRoll {
+  reaction(tilt.roll,tilt.pitch)->  DrivingUp, DrivingDown, motorfeedback.left_speed, motorfeedback.right_speed,  disp.line3{=
+
+    lf_set(disp.line3, "AdjustRoll");
+
+    if (tilt.roll->value > 0 && self->Driveup) {
+    lf_set(motorfeedback.left_speed, 0.12f);
+    lf_set(motorfeedback.right_speed, 0.16f);
+  }
+    else if  (tilt.roll->value  < 0 && self->Driveup) {
+    lf_set(motorfeedback.left_speed, 0.16f);
+    lf_set(motorfeedback.right_speed, 0.12f);
+  }
+
+  if (tilt.roll->value > 0 && self->Drivedown) {
+    lf_set(motorfeedback.right_speed, 0.08f);
+    lf_set(motorfeedback.left_speed, 0.12f);
+  }
+  else if  (tilt.roll->value < 0 && self->Drivedown) {
+    lf_set(motorfeedback.right_speed, 0.12f);
+    lf_set(motorfeedback.left_speed, 0.08f);
+  }
+
+    if (abs(tilt.roll->value) < 1.5f || (tilt.pitch->value < 4.0f && self->Driveup)) {
+
+      if(self->Driveup){
+        lf_set_mode(DrivingUp);
+        self->Driveup = false;
+      }
+      else if(self->Drivedown){
+        lf_set_mode(DrivingDown);
+        self->Drivedown = false;
+      }
+    }
+    
+  =}
+}
+
+mode Avoidingdrop {
+
+  reaction(angletodistL.encoder_dist_cm,angletodistR.encoder_dist_cm,line.reflect)tilt.roll ->  DrivingUp, DrivingDown,TurningAround, motorfeedback.left_speed, motorfeedback.right_speed, disp.line3{=
+
+          lf_set(disp.line3, "Avoidingdrop");
+    
+          lf_set(motorfeedback.left_speed, -0.12f);
+          lf_set(motorfeedback.right_speed, -0.12f);
+
+    if (abs(angletodistL.encoder_dist_cm->value - self->rel_0_dist) >= 1.5) {
+        if (self->Turnaround){
         lf_set_mode(TurningAround);
-      }
-
-      else{
-        if (abs(tilt.roll->value) >= 1.5f) {
-        self->Driveup = true;
-        lf_set_mode(AdjustRoll);
-      }
-      }
-
-    =}
-
-  }
-
-
-  mode TurningAround {
-    reaction(gyroangle.z) tilt.roll,tilt.pitch,line.reflect,angletodistL.encoder_dist_cm-> Pause, Avoidingdrop,motorfeedback.left_speed, motorfeedback.right_speed, disp.line2, disp.line3{=
-
-      static char buf2[17];
-      snprintf(buf2, 17, "yaw angle:%3.3f", gyroangle.z->value - self->rel_0_angle);
-      lf_set(disp.line2, buf2);
-
-      lf_set(disp.line3, "TurnAround");
-      
-       lf_set(motorfeedback.left_speed, -0.06f); 
-       lf_set(motorfeedback.right_speed, 0.08f);
-    
-
-      if (abs(gyroangle.z->value - self->rel_0_angle) >= 140.0f ) {
-        // lf_set(motorfeedback.left_speed, 0.00f);
-        // lf_set(motorfeedback.right_speed, 0.00f);
-        lf_set_mode(Pause); 
-      }  
-
-      if ( line.reflect -> value[0] > 700 || line.reflect -> value[1] > 700 ) {
-        self->rel_0_dist = angletodistL.encoder_dist_cm->value;
-        self->Turnaround = true;
-        lf_set_mode(Avoidingdrop);
-      }  
-    =}
-  }
-
-  mode DrivingDown {
-    reaction(angletodistL.encoder_dist_cm,angletodistR.encoder_dist_cm) tilt.roll,tilt.pitch,line.reflect -> AdjustRoll, Avoidingdrop,motorfeedback.left_speed, motorfeedback.right_speed, disp.line3 {=
-      lf_set(disp.line3, "DrivingDown");
-
-     if (abs(tilt.pitch->value) < 6.0f) {
-      lf_set(motorfeedback.left_speed, 0.12f);
-      lf_set(motorfeedback.right_speed, 0.08f);
-     }
-     else {
-      lf_set(motorfeedback.left_speed, 0.10f);
-      lf_set(motorfeedback.right_speed, 0.10f);
-    }
-
-    
-      if ((line.reflect -> value[3] > 700 && line.reflect -> value[4] > 700 )||(line.reflect -> value[0] > 700 && line.reflect -> value[1] > 700 )){
-        self->rel_0_dist = angletodistL.encoder_dist_cm->value;
-        self->Drivedown = true;
-        lf_set_mode(Avoidingdrop);
-      }
-    
-
-     if (abs(tilt.roll->value) >= 1.5f) {
-        self->Drivedown = true;
-        lf_set_mode(AdjustRoll);
-      } 
-    
-    =}
-
-  }
-
-  mode AdjustRoll {
-    reaction(tilt.roll,tilt.pitch)->  DrivingUp, DrivingDown, motorfeedback.left_speed, motorfeedback.right_speed,  disp.line3{=
-
-      lf_set(disp.line3, "AdjustRoll");
-
-      if (tilt.roll->value > 0 && self->Driveup) {
-      lf_set(motorfeedback.left_speed, 0.12f);
-      lf_set(motorfeedback.right_speed, 0.16f);
-    }
-      else if  (tilt.roll->value  < 0 && self->Driveup) {
-      lf_set(motorfeedback.left_speed, 0.16f);
-      lf_set(motorfeedback.right_speed, 0.12f);
-    }
-
-    if (tilt.roll->value > 0 && self->Drivedown) {
-      lf_set(motorfeedback.right_speed, 0.08f);
-      lf_set(motorfeedback.left_speed, 0.12f);
-    }
-    else if  (tilt.roll->value < 0 && self->Drivedown) {
-      lf_set(motorfeedback.right_speed, 0.12f);
-      lf_set(motorfeedback.left_speed, 0.08f);
-    }
-
-      if (abs(tilt.roll->value) < 1.5f || (tilt.pitch->value < 4.0f && self->Driveup)) {
-
-        if(self->Driveup){
-          lf_set_mode(DrivingUp);
-          self->Driveup = false;
+        self->Turnaround = false;
+        self->Haveavoid = true;
         }
-        else if(self->Drivedown){
-          lf_set_mode(DrivingDown);
-          self->Drivedown = false;
+        else if (self->Drivedown){
+        lf_set_mode(DrivingDown);
+        self->Drivedown = false;
         }
       }
-      
+    
+  =}
+
+}
+
+mode Pause {
+    timer end_pause(1s);
+    timer t3(0, 250 ms)
+    reaction (t3) -> motorfeedback.left_speed,motorfeedback.right_speed,disp.line3 {=
+      lf_set(disp.line3, "Pause");
+      lf_set(motorfeedback.left_speed, 0.00f);
+      lf_set(motorfeedback.right_speed, 0.00f);
     =}
-  }
-
-  mode Avoidingdrop {
-
-    reaction(angletodistL.encoder_dist_cm,angletodistR.encoder_dist_cm,line.reflect)tilt.roll ->  DrivingUp, DrivingDown,TurningAround, motorfeedback.left_speed, motorfeedback.right_speed, disp.line3{=
-
-            lf_set(disp.line3, "Avoidingdrop");
-      
-            lf_set(motorfeedback.left_speed, -0.12f);
-            lf_set(motorfeedback.right_speed, -0.12f);
-
-      if (abs(angletodistL.encoder_dist_cm->value - self->rel_0_dist) >= 1.5) {
-          if (self->Turnaround){
-          lf_set_mode(TurningAround);
-          self->Turnaround = false;
-          self->Haveavoid = true;
-          }
-          else if (self->Drivedown){
-          lf_set_mode(DrivingDown);
-          self->Drivedown = false;
-          }
-        }
-      
+    reaction (end_pause) -> DrivingDown{=
+      lf_set_mode(DrivingDown); 
     =}
 
-  }
-
-  mode Pause {
-      timer end_pause(1s);
-      timer t3(0, 250 ms)
-      reaction (t3) -> motorfeedback.left_speed,motorfeedback.right_speed,disp.line3 {=
-        lf_set(disp.line3, "Pause");
-        lf_set(motorfeedback.left_speed, 0.00f);
-        lf_set(motorfeedback.right_speed, 0.00f);
-      =}
-      reaction (end_pause) -> DrivingDown{=
-        lf_set_mode(DrivingDown); 
-      =}
-
-  }
+}
 
 }
