@@ -35,17 +35,17 @@ target C {
     state rel_0_dist:float = 0;
     state rel_0_angle:float = 0;
 
-    //   reaction(line.reflect) -> LeftAvoid, CenterAvoid, RightAvoid {=
-//     if (line.reflect -> value[0] > 700 || line.reflect -> value[1] > 700) {
-//         lf_set_mode(LeftAvoid)
-//     }
-//     if (line.reflect -> value[3] > 700 || line.reflect -> value[4] > 700) {
-//         lf_set(self->rightavoid,true);
-//     }
-//     if (line.reflect -> value[1] > 700 || value[2] > 700 || line.reflect -> value[3] > 700) {
-//         lf_set(self->centeravoid,true);
-//     }
-// =}
+      reaction(line.reflect) -> LeftAvoid, CenterAvoid, RightAvoid {=
+    if (line.reflect -> value[0] > 700 || line.reflect -> value[1] > 700) {
+        lf_set_mode(LeftAvoid)
+    }
+    if (line.reflect -> value[3] > 700 || line.reflect -> value[4] > 700) {
+        lf_set(self->rightavoid,true);
+    }
+    if (line.reflect -> value[1] > 700 || value[2] > 700 || line.reflect -> value[3] > 700) {
+        lf_set(self->centeravoid,true);
+    }
+=}
   
     reaction(startup) -> disp.line0, disp.line1, disp.line2 {=
       lf_set(disp.line0, "CALIBRATING");

@@ -41,6 +41,7 @@ target C {
       lf_set(line.trigger, true);
     =}
   
+  
     reaction(line.reflect) -> disp.line0, disp.line1, disp.line2 {=
 
       if (line.reflect -> value[0] > 700 || line.reflect -> value[1] > 700) {
