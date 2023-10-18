@@ -7,6 +7,7 @@
 preamble {=
   #include <hardware/gpio.h>
   #include <pico/stdlib.h>
+  #define timer_hw ((timer_hw_t *)TIMER_BASE)
   #define ALARM_NUM 0
   #define ALARM_IRQ TIMER_IRQ_0
 =}
@@ -21,7 +22,7 @@ main reactor {
       /* Put the variables needed for linked list node here */
       // value for the timer
       uint32_t timer_value;
-      void (*callback_func)(void);
+      *virtual_timer_callback_t callback_func;
       // next node pointer
       struct node_t * next ;
       } node_t ;
@@ -84,17 +85,13 @@ main reactor {
       }
       return head;
     }
-    /*********************************************
-        DO NOT CHANGE THE CODE ABOVE
-    *********************************************/
+
 
     /* You can also create your own linked list functions here. */
 
-    void timer_callback_func(void){
-        node_t* t = malloc(sizeof(node_t));
-        t->timer_value = 2;
-        t->callback_func = &timer_callback_func;
-        list_insert_sorted(t);
+
+    *virtual_timer_callback_t callback_func {
+
 
     }
 
@@ -102,7 +99,7 @@ main reactor {
         //Clear the alarm irq
         hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
         //Alarm 0 has fired
-        // printf("Timer Fired!");
+        printf("Timer Fired!");
     }
     void virtual_timer_init(void){
         //Enable the interrupt for our alarm
@@ -112,10 +109,15 @@ main reactor {
         //Enable the alarm irq 
         irq_set_enabled(ALARM_IRQ,true); 
     }
+
     uint32_t virtual_timer_start(uint32_t microseconds, virtual_timer_callback_t cb){
-        uint64_t target = timer_hw->timerawl + microseconds;
-        timer_hw->alarm[ALARM_NUM] = (uint32_t) target;
-        return target;
+        
+        node_t* timer = malloc(sizeof(node_t));
+        timer->timer_value = timer_hw->timerawl + microseconds;
+        timer->callback_func = *callback_func;
+        list_insert_sorted(timer);
+        // timer_hw->alarm[ALARM_NUM] = timer->timer_value;
+        return ALARM_NUM;
     }
 
 
@@ -131,6 +133,7 @@ main reactor {
 
   timer print_hw_timer(0, 1000ms)
   state get_time: uint64_t = 0;
+  state led_on:bool = false;
 
   reaction(startup) {=
       // initialize the LED and the virtual timer    
@@ -147,5 +150,18 @@ main reactor {
       printf("Read timer value: %9d us.\n",self-> get_time);
   =}
 
+  reaction(virtual_timer_start(2000)){=
+      lab5_timer_irq_handler();
+      timer->callback_func();
+      free(timer);
+      self->led_on = !self->led_on;
+      gpio_put(PICO_DEFAULT_LED_PIN, !self->led_on);
+
+  =}
+
+
   /* TODO: add reaction and timer to create the environment to test */
+  
 }
+
+
