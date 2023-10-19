@@ -106,8 +106,7 @@ main reactor {
     }
 
     uint32_t virtual_timer_start(uint32_t microseconds, virtual_timer_callback_t cb){
-        virtual_timer_init();
-        imer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + microseconds;
+        timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + microseconds;
     }
 
 
@@ -130,19 +129,18 @@ main reactor {
       gpio_init(PICO_DEFAULT_LED_PIN);
       gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
       gpio_put(25, true);
+
       virtual_timer_init();
+      virtual_timer_start(2000);
   =}
   
   reaction(print_hw_timer){=
     //   uint32_t low = timer_hw->timelr;
     //   uint32_t high = timer_hw->timehr;
     //   self-> get_time = (timer_hw->timehr << 32u) | timer_hw->timelr;
-      printf("Read timer value: %9d us.\n",timer_hw->timelr);
+      printf("Read timer value: %11d us.\n",timer_hw->timelr);
   =}
 
-  reaction(virtual_timer_start(2000)){=
-      lab5_timer_irq_handler();
-  =}
 
 
   /* TODO: add reaction and timer to create the environment to test */
