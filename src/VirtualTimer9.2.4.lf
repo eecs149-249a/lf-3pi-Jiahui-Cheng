@@ -90,18 +90,14 @@ main reactor {
 
     /* You can also create your own linked list functions here. */
 
-    static node_t* timer = NULL;
-
     virtual_timer_callback_t callback_func0 () {
-        timer->callback_func();
-        free(timer);
+        free(linked_list);
         self->led_on = !self->led_on;
         gpio_put(PICO_DEFAULT_LED_PIN, !self->led_on);
     }
 
-    void lab5_timer_irq_handler(void){
-        //Alarm 0 has fired
-        printf("Timer Fired!");        
+    void lab5_timer_irq_handler(void){ 
+        linked_list -> callback_func0();
         //Clear the alarm irq
         hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
     }
@@ -116,14 +112,11 @@ main reactor {
     }
 
     uint32_t virtual_timer_start(uint32_t microseconds, virtual_timer_callback_t cb){
-        virtual_timer_init();
-        imer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + microseconds;
-
-        // node_t* timer = malloc(sizeof(node_t));
-        // timer->timer_value = timer_hw->timerawl + microseconds;
-        // timer->callback_func = *callback_func0();
-        // list_insert_sorted(timer);
-        // return ALARM_NUM;
+        node_t* timer = NULL;
+        timer->timer_value = timer_hw->timerawl + microseconds;
+        timer->callback_func = cb;
+        list_insert_sorted(timer);
+        return ALARM_NUM;
     }
 
 
@@ -131,17 +124,11 @@ main reactor {
         /* TODO */
     }
     void virtual_timer_cancel(uint32_t time_id ){
-        while(timer->timer_value != time_id )
-        {timer->next = timer;}
-        list_remove(timer->next);
-        timer_hw->alarm[ALARM_NUM] = 0;
+       /* TODO */
     }
 
   =}
 
-
-  timer print_hw_timer(0, 1000ms)
-//   state get_time: uint64_t = 0;
   state led_on:bool = false;
 
   reaction(startup) {=
@@ -149,18 +136,9 @@ main reactor {
       gpio_init(PICO_DEFAULT_LED_PIN);
       gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
       gpio_put(25, true);
-      virtual_timer_init();
-  =}
-  
-  reaction(print_hw_timer){=
-    //   uint32_t low = timer_hw->timelr;
-    //   uint32_t high = timer_hw->timehr;
-    //   self-> get_time = (timer_hw->timehr << 32u) | timer_hw->timelr;
-      printf("Read timer value: %9d us.\n",timer_hw->timelr);
-  =}
 
-  reaction(virtual_timer_start(2000)){=
-      lab5_timer_irq_handler();
+      virtual_timer_init();
+      virtual_timer_start(2000,callback_func0);
   =}
 
 
