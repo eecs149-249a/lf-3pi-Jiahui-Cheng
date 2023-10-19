@@ -22,7 +22,6 @@ main reactor {
       /* Put the variables needed for linked list node here */
       // value for the timer
       uint32_t timer_value;
-      *virtual_timer_callback_t callback_func;
       // next node pointer
       struct node_t * next ;
       } node_t ;
@@ -90,15 +89,6 @@ main reactor {
 
     /* You can also create your own linked list functions here. */
 
-    static node_t* timer = NULL;
-
-    virtual_timer_callback_t callback_func0 () {
-        timer->callback_func();
-        free(timer);
-        self->led_on = !self->led_on;
-        gpio_put(PICO_DEFAULT_LED_PIN, !self->led_on);
-    }
-
     void lab5_timer_irq_handler(void){
         //Alarm 0 has fired
         printf("Timer Fired!");        
@@ -118,12 +108,6 @@ main reactor {
     uint32_t virtual_timer_start(uint32_t microseconds, virtual_timer_callback_t cb){
         virtual_timer_init();
         imer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + microseconds;
-
-        // node_t* timer = malloc(sizeof(node_t));
-        // timer->timer_value = timer_hw->timerawl + microseconds;
-        // timer->callback_func = *callback_func0();
-        // list_insert_sorted(timer);
-        // return ALARM_NUM;
     }
 
 
@@ -131,10 +115,7 @@ main reactor {
         /* TODO */
     }
     void virtual_timer_cancel(uint32_t time_id ){
-        while(timer->timer_value != time_id )
-        {timer->next = timer;}
-        list_remove(timer->next);
-        timer_hw->alarm[ALARM_NUM] = 0;
+        /* TODO */
     }
 
   =}
