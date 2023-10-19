@@ -88,6 +88,7 @@ main reactor {
 
 
     /* You can also create your own linked list functions here. */
+    virtual_timer_callback_t callback_func0 () {}
 
     void lab5_timer_irq_handler(void){
         //Alarm 0 has fired
@@ -98,7 +99,7 @@ main reactor {
 
     void virtual_timer_init(void){
         //Enable the interrupt for our alarm
-        hw_set_bits(timer_hw->inte,1u << ALARM_NUM);
+        hw_set_bits(&timer_hw->inte,1u << ALARM_NUM);
         //Set irq handler for alarm irq
         irq_set_exclusive_handler(ALARM_IRQ,lab5_timer_irq_handler);
         //Enable the alarm irq 
@@ -106,7 +107,10 @@ main reactor {
     }
 
     uint32_t virtual_timer_start(uint32_t microseconds, virtual_timer_callback_t cb){
-        timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + microseconds;
+
+        uint64_t target = timer_hw->timerawl + microseconds;
+        timer_hw->alarm[ALARM_NUM] = (uint32_t) target;
+        return 0;
     }
 
 
@@ -120,9 +124,8 @@ main reactor {
   =}
 
 
-  timer print_hw_timer(0, 1000ms)
-//   state get_time: uint64_t = 0;
-  state led_on:bool = false;
+  //timer print_hw_timer(0, 1000ms)
+
 
   reaction(startup) {=
       // initialize the LED and the virtual timer    
@@ -131,17 +134,13 @@ main reactor {
       gpio_put(25, true);
 
       virtual_timer_init();
-      virtual_timer_start(2000);
+      virtual_timer_start(1000000*10,callback_func0);
   =}
   
-  reaction(print_hw_timer){=
-    //   uint32_t low = timer_hw->timelr;
-    //   uint32_t high = timer_hw->timehr;
-    //   self-> get_time = (timer_hw->timehr << 32u) | timer_hw->timelr;
-      printf("Read timer value: %11d us.\n",timer_hw->timelr);
-  =}
-
-
+  // reaction(print_hw_timer){=
+  //     printf("Time: %11d us.\n",timer_hw->timelr);
+  // =}
+  //picotool load -x bin/VirtualTimer3.elf
 
   /* TODO: add reaction and timer to create the environment to test */
   

@@ -22,13 +22,14 @@ main reactor {
       /* Put the variables needed for linked list node here */
       // value for the timer
       uint32_t timer_value;
-      *virtual_timer_callback_t callback_func;
+      virtual_timer_callback_t callback;
       // next node pointer
       struct node_t * next ;
       } node_t ;
 
     //The linked list for timer
     static node_t* linked_list = NULL;
+    static bool led_on = false;
 
     // linked list operation functions
     // insert the node in the sorted linked list (linked_list) and return the sorted linked list after the insertion
@@ -90,21 +91,22 @@ main reactor {
 
     /* You can also create your own linked list functions here. */
 
-    virtual_timer_callback_t callback_func0 () {
+    virtual_timer_callback_t callback_function () {
+        printf("Toggle LED!");
         free(linked_list);
-        self->led_on = !self->led_on;
-        gpio_put(PICO_DEFAULT_LED_PIN, !self->led_on);
+        // led_on = !led_on;
+        // gpio_put(PICO_DEFAULT_LED_PIN, !led_on);
     }
 
     void lab5_timer_irq_handler(void){ 
-        linked_list -> callback_func0();
+        linked_list -> callback;
         //Clear the alarm irq
         hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
     }
 
     void virtual_timer_init(void){
         //Enable the interrupt for our alarm
-        hw_set_bits(timer_hw->inte,1u << ALARM_NUM);
+        hw_set_bits(&timer_hw->inte,1u << ALARM_NUM);
         //Set irq handler for alarm irq
         irq_set_exclusive_handler(ALARM_IRQ,lab5_timer_irq_handler);
         //Enable the alarm irq 
@@ -112,10 +114,14 @@ main reactor {
     }
 
     uint32_t virtual_timer_start(uint32_t microseconds, virtual_timer_callback_t cb){
-        node_t* timer = NULL;
+
+        node_t* timer = malloc(sizeof(node_t));
         timer->timer_value = timer_hw->timerawl + microseconds;
-        timer->callback_func = cb;
+        timer->callback = &cb;
+    
         list_insert_sorted(timer);
+
+        timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
         return ALARM_NUM;
     }
 
@@ -129,7 +135,6 @@ main reactor {
 
   =}
 
-  state led_on:bool = false;
 
   reaction(startup) {=
       // initialize the LED and the virtual timer    
@@ -138,7 +143,20 @@ main reactor {
       gpio_put(25, true);
 
       virtual_timer_init();
-      virtual_timer_start(2000,callback_func0);
+    //   virtual_timer_start(1000000*5,callback_function);
+  =}
+
+  timer t(0,4000ms)
+  reaction(t){=
+  printf("Time:%11d us.\n",linked_list -> timer_value);
+  =}
+
+  timer t2(0,6000ms)
+  reaction(t2){=
+  virtual_timer_start(1000000*5,callback_function);
+  printf("Check1:%11d us.\n",linked_list -> timer_value);
+  printf("Check2:%11d us.\n",linked_list-> next-> timer_value);
+  printf("Check3:%11d us.\n",linked_list-> next-> next-> timer_value);
   =}
 
 
