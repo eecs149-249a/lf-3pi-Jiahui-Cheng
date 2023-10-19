@@ -100,11 +100,12 @@ main reactor {
     }
 
     void lab5_timer_irq_handler(void){
+        //Alarm 0 has fired
+        printf("Timer Fired!");        
         //Clear the alarm irq
         hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
-        //Alarm 0 has fired
-        printf("Timer Fired!");
     }
+
     void virtual_timer_init(void){
         //Enable the interrupt for our alarm
         hw_set_bits(timer_hw->inte,1u << ALARM_NUM);
@@ -115,13 +116,14 @@ main reactor {
     }
 
     uint32_t virtual_timer_start(uint32_t microseconds, virtual_timer_callback_t cb){
-        
-        node_t* timer = malloc(sizeof(node_t));
-        timer->timer_value = timer_hw->timerawl + microseconds;
-        timer->callback_func = *callback_func0();
-        list_insert_sorted(timer);
-        // timer_hw->alarm[ALARM_NUM] = timer->timer_value;
-        return ALARM_NUM;
+        virtual_timer_init();
+        imer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + microseconds;
+
+        // node_t* timer = malloc(sizeof(node_t));
+        // timer->timer_value = timer_hw->timerawl + microseconds;
+        // timer->callback_func = *callback_func0();
+        // list_insert_sorted(timer);
+        // return ALARM_NUM;
     }
 
 
@@ -139,7 +141,7 @@ main reactor {
 
 
   timer print_hw_timer(0, 1000ms)
-  state get_time: uint64_t = 0;
+//   state get_time: uint64_t = 0;
   state led_on:bool = false;
 
   reaction(startup) {=
@@ -153,8 +155,8 @@ main reactor {
   reaction(print_hw_timer){=
     //   uint32_t low = timer_hw->timelr;
     //   uint32_t high = timer_hw->timehr;
-      self-> get_time = (timer_hw->timehr << 32u) | timer_hw->timelr;
-      printf("Read timer value: %9d us.\n",self-> get_time);
+    //   self-> get_time = (timer_hw->timehr << 32u) | timer_hw->timelr;
+      printf("Read timer value: %9d us.\n",timer_hw->timelr);
   =}
 
   reaction(virtual_timer_start(2000)){=
