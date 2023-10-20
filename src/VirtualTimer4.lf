@@ -19,11 +19,10 @@ main reactor {
  
     // Definition of linked list node 
      typedef struct node_t {
-
       // value for the timer
       uint32_t timer_value;
       // callback_function pointer
-      virtual_timer_callback_t callback();
+      virtual_timer_callback_t callback;
       // next node pointer
       struct node_t * next ;
       } node_t ;
@@ -100,7 +99,7 @@ main reactor {
     }
 
     void lab5_timer_irq_handler(void){ 
-        linked_list -> callback();
+        linked_list -> callback;
         //Clear the alarm irq
         hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
     }
@@ -120,18 +119,18 @@ main reactor {
 
         node_t* timer = malloc(sizeof(node_t));
         timer->timer_value = timer_hw->timerawl + microseconds;
-        timer->callback() = &cb;
+        timer->callback = &cb;
         list_insert_sorted(timer);
 
         timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
 
-        int TimerID = 1;
-        node_t * current = linked_list;
-        while (current->timer_value != timer->timer_value) {
-        current = current->next;
-        TimerID ++;
-        }
-        return TimerID;
+        // int TimerID = 1;
+        // node_t * current = linked_list;
+        // while (current->timer_value != timer->timer_value) {
+        // current = current->next;
+        // TimerID ++;
+        // }
+        return timer->timer_value;
     }
 
 
@@ -152,7 +151,7 @@ main reactor {
       gpio_put(25, true);
 
       virtual_timer_init();
-      virtual_timer_start(1000000*5,callback_function);
+      virtual_timer_start(1000000*5,callback_function());
   =}
 
   // timer t(0,4000ms)

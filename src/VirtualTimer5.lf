@@ -20,17 +20,11 @@ target C {
       // Definition of linked list node 
        typedef struct node_t {
   
-        // value for the timer
         uint32_t timer_value;
-        // callback_function pointer
-        virtual_timer_callback_t callback();
-        // TimerID
-        bool repeat = false;
-        // time interval
+        virtual_timer_callback_t callback;
+        bool repeat;
         uint32_t timer_interval;
-        // next node pointer
         struct node_t * next;
-
         } node_t ;
   
       //The linked list for timer
@@ -101,7 +95,7 @@ target C {
           printf("Toggle LED!");
           node_t* current = list_remove_first();
 
-          if (current->repeat){
+          if (current->repeat == true){
             current-> timer_value = timer_hw->timerawl + current-> timer_interval;
             list_insert_sorted(current);   
           }
@@ -112,7 +106,7 @@ target C {
       }
   
       void lab5_timer_irq_handler(void){ 
-          linked_list -> callback();
+          linked_list -> callback;
           //Clear the alarm irq
           hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
           if (linked_list != NULL) {
@@ -136,7 +130,9 @@ target C {
     
         node_t* timer = malloc(sizeof(node_t));
         timer->timer_value = timer_hw->timerawl + microseconds;
-        timer->callback() = &cb;
+        timer->timer_interval = 0;
+        timer->repeat = false;        
+        timer->callback = &cb;
         list_insert_sorted(timer);
         timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
 
@@ -156,7 +152,7 @@ target C {
     timer->timer_value = timer_hw->timerawl + microseconds;
     timer->timer_interval = microseconds;
     timer->repeat = true;
-    timer->callback() = &cb;
+    timer->callback = &cb;
     list_insert_sorted(timer);
 
     timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
