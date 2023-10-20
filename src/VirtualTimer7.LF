@@ -102,22 +102,30 @@ target C {
   
       /* You can also create your own linked list functions here. */
   
-      virtual_timer_callback_t callback_function () {
-          printf("Toggle LED!");
+      virtual_timer_callback_t callback_function_turnon () {
+          printf("Turn on LED!");
           node_t* current = list_remove_first();
 
           if (current->repeat){
             current-> timer_value = timer_hw->timerawl + current-> timer_interval;
             list_insert_sorted(current);   
-            repeat_time ++;
-            if (repeat_time >= target_time) {
-              virtual_timer_cancel(virtual_timer_start_repeated(1000000*1,callback_function()));
-            }
           }
           else {
             free(current);
+          }   
+      }
+
+      virtual_timer_callback_t callback_function_turnoff () {
+          printf("Turn off LED!");
+          node_t* current = list_remove_first();
+
+          if (current->repeat){
+            current-> timer_value = timer_hw->timerawl + current-> timer_interval;
+            list_insert_sorted(current);   
           }
-                
+          else {
+            free(current);
+          }   
       }
   
       void lab5_timer_irq_handler(void){ 
@@ -193,14 +201,14 @@ target C {
         gpio_put(25, true);
   
         virtual_timer_init();
-        virtual_timer_start_repeated(1000000*1,callback_function());
-        target_time = 5;
+        virtual_timer_start(1000000*1,callback_function_turnon());
+        virtual_timer_start(1000000*2,callback_function_turnoff());
+        virtual_timer_start(1000000*3,callback_function_turnon());
+        virtual_timer_start(1000000*4,callback_function_turnoff());
+        virtual_timer_start(1000000*5,callback_function_turnon());
+        virtual_timer_start(1000000*6,callback_function_turnoff());
+
     =}
-  
-    // timer t (5s,0);
-    // reaction(t) {=
-    //     virtual_timer_cancel(virtual_timer_start_repeated(1000000*1,callback_function()));
-    // =}
 
   }
   

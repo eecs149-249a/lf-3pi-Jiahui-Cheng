@@ -102,22 +102,30 @@ target C {
   
       /* You can also create your own linked list functions here. */
   
-      virtual_timer_callback_t callback_function () {
+      virtual_timer_callback_t callback_function_toggle () {
           printf("Toggle LED!");
           node_t* current = list_remove_first();
 
           if (current->repeat){
             current-> timer_value = timer_hw->timerawl + current-> timer_interval;
             list_insert_sorted(current);   
-            repeat_time ++;
-            if (repeat_time >= target_time) {
-              virtual_timer_cancel(virtual_timer_start_repeated(1000000*1,callback_function()));
-            }
           }
           else {
             free(current);
+          }   
+      }
+
+      virtual_timer_callback_t callback_function_nothing () {
+          printf("Do nothing!");
+          node_t* current = list_remove_first();
+
+          if (current->repeat){
+            current-> timer_value = timer_hw->timerawl + current-> timer_interval;
+            list_insert_sorted(current);   
           }
-                
+          else {
+            free(current);
+          }  
       }
   
       void lab5_timer_irq_handler(void){ 
@@ -125,7 +133,10 @@ target C {
           //Clear the alarm irq
           hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
           if (linked_list != NULL) {
-             timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+            while (linked_list -> timer_value > timer_hw->timerawl){
+               linked_list -> callback; 
+            }
+            timer_hw -> alarm[ALARM_NUM] = linked_list -> timer_value;
           }
           
       }
@@ -137,7 +148,7 @@ target C {
           //Set irq handler for alarm irq
           irq_set_exclusive_handler(ALARM_IRQ,lab5_timer_irq_handler);
           //Enable the alarm irq 
-          irq_set_enabled(ALARM_IRQ,true); 
+          c
   
       }
   
@@ -148,16 +159,13 @@ target C {
           timer->callback = &cb;
           timer->timer_interval = 0;
           timer->repeat = false;   
+
+          irq_set_enabled(ALARM_IRQ,false); 
           list_insert_sorted(timer);
+          irq_set_enabled(ALARM_IRQ,true); 
+
           timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
   
-        //   int TimerID = 1;
-        //   node_t * current = linked_list;
-        //   while (current->timer_value != timer->timer_value) {
-        //   current = current->next;
-        //   TimerID ++;
-        //   }
-        //   return TimerID;
           return timer->timer_value;
       }
   
@@ -168,7 +176,10 @@ target C {
           timer->timer_interval = microseconds;
           timer->repeat = true;
           timer->callback = &cb;
+
+          irq_set_enabled(ALARM_IRQ,false); 
           list_insert_sorted(timer);
+          irq_set_enabled(ALARM_IRQ,true); 
 
           timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
 
@@ -193,14 +204,10 @@ target C {
         gpio_put(25, true);
   
         virtual_timer_init();
-        virtual_timer_start_repeated(1000000*1,callback_function());
-        target_time = 5;
+        virtual_timer_start_repeated(1000000 , callback_function_toggle);
+        virtual_timer_start_repeated(2000000 , callback_function_nothing);
+
     =}
-  
-    // timer t (5s,0);
-    // reaction(t) {=
-    //     virtual_timer_cancel(virtual_timer_start_repeated(1000000*1,callback_function()));
-    // =}
 
   }
   
