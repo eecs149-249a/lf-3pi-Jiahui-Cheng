@@ -18,11 +18,12 @@ main reactor {
     typedef void (*virtual_timer_callback_t)(void);
  
     // Definition of linked list node 
-    typedef struct node_t {
-      /* Put the variables needed for linked list node here */
+     typedef struct node_t {
+
       // value for the timer
       uint32_t timer_value;
-      virtual_timer_callback_t callback;
+      // callback_function pointer
+      virtual_timer_callback_t callback();
       // next node pointer
       struct node_t * next ;
       } node_t ;
@@ -93,36 +94,44 @@ main reactor {
 
     virtual_timer_callback_t callback_function () {
         printf("Toggle LED!");
-        free(linked_list);
+        free(list_remove_first());
         // led_on = !led_on;
         // gpio_put(PICO_DEFAULT_LED_PIN, !led_on);
     }
 
     void lab5_timer_irq_handler(void){ 
-        linked_list -> callback;
+        linked_list -> callback();
         //Clear the alarm irq
         hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
     }
 
     void virtual_timer_init(void){
+
         //Enable the interrupt for our alarm
         hw_set_bits(&timer_hw->inte,1u << ALARM_NUM);
         //Set irq handler for alarm irq
         irq_set_exclusive_handler(ALARM_IRQ,lab5_timer_irq_handler);
         //Enable the alarm irq 
         irq_set_enabled(ALARM_IRQ,true); 
+
     }
 
     uint32_t virtual_timer_start(uint32_t microseconds, virtual_timer_callback_t cb){
 
         node_t* timer = malloc(sizeof(node_t));
         timer->timer_value = timer_hw->timerawl + microseconds;
-        timer->callback = &cb;
-    
+        timer->callback() = &cb;
         list_insert_sorted(timer);
 
         timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
-        return ALARM_NUM;
+
+        int TimerID = 1;
+        node_t * current = linked_list;
+        while (current->timer_value != timer->timer_value) {
+        current = current->next;
+        TimerID ++;
+        }
+        return TimerID;
     }
 
 
@@ -143,21 +152,21 @@ main reactor {
       gpio_put(25, true);
 
       virtual_timer_init();
-    //   virtual_timer_start(1000000*5,callback_function);
+      virtual_timer_start(1000000*5,callback_function);
   =}
 
-  timer t(0,4000ms)
-  reaction(t){=
-  printf("Time:%11d us.\n",linked_list -> timer_value);
-  =}
+  // timer t(0,4000ms)
+  // reaction(t){=
+  // printf("Time:%11d us.\n",linked_list -> timer_value);
+  // =}
 
-  timer t2(0,6000ms)
-  reaction(t2){=
-  virtual_timer_start(1000000*5,callback_function);
-  printf("Check1:%11d us.\n",linked_list -> timer_value);
-  printf("Check2:%11d us.\n",linked_list-> next-> timer_value);
-  printf("Check3:%11d us.\n",linked_list-> next-> next-> timer_value);
-  =}
+  // timer t2(0,6000ms)
+  // reaction(t2){=
+  // virtual_timer_start(1000000*5,callback_function);
+  // printf("Check1:%11d us.\n",linked_list -> timer_value);
+  // printf("Check2:%11d us.\n",linked_list-> next-> timer_value);
+  // printf("Check3:%11d us.\n",linked_list-> next-> next-> timer_value);
+  // =}
 
 
   /* TODO: add reaction and timer to create the environment to test */
