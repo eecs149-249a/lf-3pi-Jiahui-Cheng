@@ -83,8 +83,6 @@ target C {
                   }
                   if(curr_node != NULL){
                       prev_node -> next = curr_node -> next; 
-                      free(curr_node);
-                      timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
                   }
               }
           }
@@ -109,7 +107,11 @@ target C {
           if (current->repeat){
             current-> timer_value = timer_hw->timerawl + current-> timer_interval;
             list_insert_sorted(current);   
+            self->led_on = !self->led_on;
+            gpio_put(PICO_DEFAULT_LED_PIN, !self->led_on);
+
             repeat_time ++;
+            printf("Repeat time: %d",repeat_time);
             if (repeat_time >= target_time) {
               virtual_timer_cancel(virtual_timer_start_repeated(1000000*1,callback_function()));
             }
@@ -172,15 +174,16 @@ target C {
 
           timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
 
-          return timer->timer_value;
+          return timer->timer_interval;
       }
 
       void virtual_timer_cancel(uint32_t time_id ){
         node_t * current = linked_list;
-        while (current->timer_value != time_id) {
+        while (current->timer_interval != time_id) {
         current = current->next;
         }
-        list_remove(current);
+        free(list_remove(current));
+        timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
       }
   
     =}

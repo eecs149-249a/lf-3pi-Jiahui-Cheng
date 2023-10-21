@@ -104,6 +104,7 @@ target C {
   
       virtual_timer_callback_t callback_function_turnon () {
           printf("Turn on LED!");
+          led_on = true;
           node_t* current = list_remove_first();
 
           if (current->repeat){
@@ -117,6 +118,7 @@ target C {
 
       virtual_timer_callback_t callback_function_turnoff () {
           printf("Turn off LED!");
+          led_on = false;
           node_t* current = list_remove_first();
 
           if (current->repeat){
@@ -166,7 +168,7 @@ target C {
         //   TimerID ++;
         //   }
         //   return TimerID;
-          return timer->timer_value;
+          return timer->timer_interval;
       }
   
   
@@ -180,12 +182,12 @@ target C {
 
           timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
 
-          return timer->timer_value;
+          return timer->timer_interval;
       }
 
       void virtual_timer_cancel(uint32_t time_id ){
         node_t * current = linked_list;
-        while (current->timer_value != time_id) {
+        while (current->timer_interval != time_id) {
         current = current->next;
         }
         list_remove(current);

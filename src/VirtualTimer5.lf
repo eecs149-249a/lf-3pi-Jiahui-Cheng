@@ -97,7 +97,9 @@ target C {
 
           if (current->repeat == true){
             current-> timer_value = timer_hw->timerawl + current-> timer_interval;
-            list_insert_sorted(current);   
+            list_insert_sorted(current);
+            self->led_on = !self->led_on;
+            gpio_put(PICO_DEFAULT_LED_PIN, !self->led_on);    
           }
           else {
             free(current);

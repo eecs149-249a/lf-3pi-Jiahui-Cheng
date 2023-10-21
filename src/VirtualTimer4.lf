@@ -90,12 +90,16 @@ main reactor {
 
 
     /* You can also create your own linked list functions here. */
+    static bool toggle = false;
 
     virtual_timer_callback_t callback_function () {
         printf("Toggle LED!");
+        toggle = true;
         free(list_remove_first());
-        // led_on = !led_on;
-        // gpio_put(PICO_DEFAULT_LED_PIN, !led_on);
+        
+        // gpio_put(PICO_DEFAULT_LED_PIN, !led_on);sleep(1);
+        // gpio_put(PICO_DEFAULT_LED_PIN, led_on);sleep(1);
+        // gpio_put(PICO_DEFAULT_LED_PIN, !led_on);     
     }
 
     void lab5_timer_irq_handler(void){ 
@@ -124,12 +128,6 @@ main reactor {
 
         timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
 
-        // int TimerID = 1;
-        // node_t * current = linked_list;
-        // while (current->timer_value != timer->timer_value) {
-        // current = current->next;
-        // TimerID ++;
-        // }
         return timer->timer_value;
     }
 
@@ -154,18 +152,15 @@ main reactor {
       virtual_timer_start(1000000*5,callback_function());
   =}
 
-  // timer t(0,4000ms)
-  // reaction(t){=
-  // printf("Time:%11d us.\n",linked_list -> timer_value);
-  // =}
 
-  // timer t2(0,6000ms)
-  // reaction(t2){=
-  // virtual_timer_start(1000000*5,callback_function);
-  // printf("Check1:%11d us.\n",linked_list -> timer_value);
-  // printf("Check2:%11d us.\n",linked_list-> next-> timer_value);
-  // printf("Check3:%11d us.\n",linked_list-> next-> next-> timer_value);
-  // =}
+    timer t(0,500ms)
+    reaction(t){=
+        if(toggle == true){
+            self->led_on = !self->led_on;
+            gpio_put(PICO_DEFAULT_LED_PIN, !self->led_on);
+        }
+    =}
+
 
 
   /* TODO: add reaction and timer to create the environment to test */
