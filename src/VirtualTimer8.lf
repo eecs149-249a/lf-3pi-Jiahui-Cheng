@@ -206,7 +206,6 @@ target C {
         virtual_timer_init();
         virtual_timer_start_repeated(1000000 , callback_function_toggle);
         virtual_timer_start_repeated(2000000 , callback_function_nothing);
-
     =}
 
   }
