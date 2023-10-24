@@ -20,16 +20,25 @@ target C {
       // Definition of linked list node 
        typedef struct node_t {
   
+        // value for the timer
         uint32_t timer_value;
+        // callback_function pointer
         virtual_timer_callback_t callback;
+        // TimerID
         bool repeat;
+        // time interval
         uint32_t timer_interval;
+        // next node pointer
         struct node_t * next;
+
         } node_t ;
   
       //The linked list for timer
       static node_t* linked_list = NULL;
       static bool led_on = false;
+
+      static int repeat_time = 0;
+      static int target_time;
   
       // linked list operation functions
       // insert the node in the sorted linked list (linked_list) and return the sorted linked list after the insertion
@@ -74,6 +83,8 @@ target C {
                   }
                   if(curr_node != NULL){
                       prev_node -> next = curr_node -> next; 
+                      free(curr_node);
+                      timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
                   }
               }
           }
@@ -104,35 +115,37 @@ target C {
           else {
             free(current);
           }
-                
       }
-        
+
       virtual_timer_callback_t callback_function_nothing () {
-          printf("Nothing!");
+          printf("Do nothing!");
           node_t* current = list_remove_first();
 
-          if (current->repeat == true){
+          if (current->repeat){
             current-> timer_value = timer_hw->timerawl + current-> timer_interval;
-            list_insert_sorted(current);  
+            list_insert_sorted(current);   
           }
           else {
             free(current);
-          }
-                
+          }  
       }
   
-  
       void lab5_timer_irq_handler(void){ 
+          // linked_list->callback();
+          // //Clear the alarm irq
+          // hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
+          // if (linked_list != NULL) {
+          //   while (linked_list -> timer_value > timer_hw->timerawl){
+          //     linked_list->callback();
+          //   }
+          //   timer_hw -> alarm[ALARM_NUM] = linked_list -> timer_value;
+          // }
           linked_list -> callback();
           //Clear the alarm irq
           hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
           if (linked_list != NULL) {
-            if(linked_list -> timer_value < timer_hw->timerawl){
-              linked_list->callback();
-            }
              timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
           }
-          
       }
   
       void virtual_timer_init(void){
@@ -142,39 +155,59 @@ target C {
           //Set irq handler for alarm irq
           irq_set_exclusive_handler(ALARM_IRQ,lab5_timer_irq_handler);
           //Enable the alarm irq 
-          irq_set_enabled(ALARM_IRQ,true); 
   
       }
   
-    uint32_t virtual_timer_start(uint32_t microseconds, virtual_timer_callback_t cb){
-    
-        node_t* timer = malloc(sizeof(node_t));
+      uint32_t virtual_timer_start(uint32_t microseconds, virtual_timer_callback_t cb){
+  
+          node_t* timer = malloc(sizeof(node_t));
+          timer->timer_value = timer_hw->timerawl + microseconds;
+          timer->callback = cb;
+          timer->timer_interval = 0;
+          timer->repeat = false;   
+
+          irq_set_enabled(ALARM_IRQ,false); 
+          list_insert_sorted(timer);
+          irq_set_enabled(ALARM_IRQ,true); 
+
+          timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+  
+          return timer->timer_value;
+      }
+  
+  
+      uint32_t virtual_timer_start_repeated(uint32_t microseconds, virtual_timer_callback_t cb){
+          // node_t* timer = malloc(sizeof(node_t));
+          // timer->timer_value = timer_hw->timerawl + microseconds;
+          // timer->timer_interval = microseconds;
+          // timer->repeat = true;
+          // timer->callback = cb;
+
+          // irq_set_enabled(ALARM_IRQ,false); 
+          // list_insert_sorted(timer);
+          // irq_set_enabled(ALARM_IRQ,true); 
+
+          // timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+
+          // return timer->timer_value;
+          node_t* timer = malloc(sizeof(node_t));
         timer->timer_value = timer_hw->timerawl + microseconds;
-        timer->timer_interval = 0;
-        timer->repeat = false;        
+        timer->timer_interval = microseconds;
+        timer->repeat = true;
         timer->callback = cb;
         list_insert_sorted(timer);
+
         timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+
         return timer->timer_value;
-    }
-
-
-    uint32_t virtual_timer_start_repeated(uint32_t microseconds, virtual_timer_callback_t cb){
-    node_t* timer = malloc(sizeof(node_t));
-    timer->timer_value = timer_hw->timerawl + microseconds;
-    timer->timer_interval = microseconds;
-    timer->repeat = true;
-    timer->callback = cb;
-    irq_set_enabled(ALARM_IRQ,false); 
-    list_insert_sorted(timer);
-    irq_set_enabled(ALARM_IRQ,true); 
-    timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
-
-    return timer->timer_value;
-    }
+      }
 
       void virtual_timer_cancel(uint32_t time_id ){
-        // list_remove(node_t* node);
+        node_t * current = linked_list;
+        while (current->timer_value != time_id) {
+        current = current->next;
+        }
+        list_remove(current);
       }
   
     =}
@@ -187,10 +220,9 @@ target C {
         gpio_put(25, true);
   
         virtual_timer_init();
-        virtual_timer_start_repeated(1000000*1,callback_function_toggle);
-        virtual_timer_start_repeated(1000000*2,callback_function_nothing);
+        virtual_timer_start_repeated(1000000 , callback_function_toggle);
+        // virtual_timer_start_repeated(2000000 , callback_function_nothing);
     =}
-  
-    
+
   }
   

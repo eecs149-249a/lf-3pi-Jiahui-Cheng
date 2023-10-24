@@ -36,6 +36,7 @@ target C {
       //The linked list for timer
       static node_t* linked_list = NULL;
       static bool led_on = false;
+      static bool toggle = false;
 
       static int repeat_time = 0;
       static int target_time;
@@ -105,29 +106,15 @@ target C {
       virtual_timer_callback_t callback_function_turnon () {
           printf("Turn on LED!");
           led_on = true;
-          node_t* current = list_remove_first();
-
-          if (current->repeat){
-            current-> timer_value = timer_hw->timerawl + current-> timer_interval;
-            list_insert_sorted(current);   
-          }
-          else {
-            free(current);
-          }   
+          gpio_put(PICO_DEFAULT_LED_PIN, !led_on);
+          free(list_remove_first());
       }
 
       virtual_timer_callback_t callback_function_turnoff () {
           printf("Turn off LED!");
           led_on = false;
-          node_t* current = list_remove_first();
-
-          if (current->repeat){
-            current-> timer_value = timer_hw->timerawl + current-> timer_interval;
-            list_insert_sorted(current);   
-          }
-          else {
-            free(current);
-          }   
+          gpio_put(PICO_DEFAULT_LED_PIN, !led_on);
+          free(list_remove_first());
       }
   
       void lab5_timer_irq_handler(void){ 
@@ -155,7 +142,7 @@ target C {
   
           node_t* timer = malloc(sizeof(node_t));
           timer->timer_value = timer_hw->timerawl + microseconds;
-          timer->callback = &cb;
+          timer->callback = cb;
           timer->timer_interval = 0;
           timer->repeat = false;   
           list_insert_sorted(timer);
@@ -202,8 +189,16 @@ target C {
         virtual_timer_start(1000000*4,callback_function_turnoff);
         virtual_timer_start(1000000*5,callback_function_turnon);
         virtual_timer_start(1000000*6,callback_function_turnoff);
-
     =}
+
+  // timer t(0,500ms)
+  // reaction(t){=
+  //     if(toggle){
+  //         led_on = !led_on;
+  //         gpio_put(PICO_DEFAULT_LED_PIN, !led_on);
+  //     }
+  // =}
+
 
   }
   
