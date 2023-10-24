@@ -98,8 +98,8 @@ target C {
           if (current->repeat == true){
             current-> timer_value = timer_hw->timerawl + current-> timer_interval;
             list_insert_sorted(current);
-            self->led_on = !self->led_on;
-            gpio_put(PICO_DEFAULT_LED_PIN, !self->led_on);    
+            led_on = !led_on;
+            gpio_put(PICO_DEFAULT_LED_PIN, !led_on);    
           }
           else {
             free(current);
@@ -108,7 +108,7 @@ target C {
       }
   
       void lab5_timer_irq_handler(void){ 
-          linked_list -> callback;
+          linked_list -> callback();
           //Clear the alarm irq
           hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
           if (linked_list != NULL) {
@@ -134,17 +134,9 @@ target C {
         timer->timer_value = timer_hw->timerawl + microseconds;
         timer->timer_interval = 0;
         timer->repeat = false;        
-        timer->callback = &cb;
+        timer->callback = cb;
         list_insert_sorted(timer);
         timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
-
-        //   int TimerID = 1;
-        //   node_t * current = linked_list;
-        //   while (current->timer_value != timer->timer_value) {
-        //   current = current->next;
-        //   TimerID ++;
-        //   }
-        //   return TimerID;
         return timer->timer_value;
     }
 
@@ -154,7 +146,7 @@ target C {
     timer->timer_value = timer_hw->timerawl + microseconds;
     timer->timer_interval = microseconds;
     timer->repeat = true;
-    timer->callback = &cb;
+    timer->callback = cb;
     list_insert_sorted(timer);
 
     timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
@@ -176,7 +168,7 @@ target C {
         gpio_put(25, true);
   
         virtual_timer_init();
-        virtual_timer_start_repeated(1000000*1,callback_function());
+        virtual_timer_start_repeated(1000000*1,callback_function);
     =}
   
     

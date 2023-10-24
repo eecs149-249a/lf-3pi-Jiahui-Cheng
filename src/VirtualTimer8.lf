@@ -129,12 +129,12 @@ target C {
       }
   
       void lab5_timer_irq_handler(void){ 
-          linked_list -> callback;
+          linked_list->callback();
           //Clear the alarm irq
           hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
           if (linked_list != NULL) {
             while (linked_list -> timer_value > timer_hw->timerawl){
-               linked_list -> callback; 
+              linked_list->callback();
             }
             timer_hw -> alarm[ALARM_NUM] = linked_list -> timer_value;
           }
@@ -175,7 +175,7 @@ target C {
           timer->timer_value = timer_hw->timerawl + microseconds;
           timer->timer_interval = microseconds;
           timer->repeat = true;
-          timer->callback = &cb;
+          timer->callback = cb;
 
           irq_set_enabled(ALARM_IRQ,false); 
           list_insert_sorted(timer);
