@@ -112,15 +112,14 @@ target C {
           linked_list -> callback(); 
 
         if (linked_list->repeat == true){
-          if (repeat_time >= target_time) {
-              virtual_timer_cancel(linked_list-> timer_interval);
-          }
-          else
-          {
+          // if (repeat_time >= target_time) {
+          //   virtual_timer_cancel(linked_list-> timer_interval);
+          // }
             linked_list-> timer_value = timer_hw->timerawl + linked_list-> timer_interval;
             list_insert_sorted(list_remove_first());  
-            repeat_time ++;
-          }
+            // repeat_time ++;
+
+            
         }
           else {
             free(list_remove_first());
@@ -153,9 +152,11 @@ target C {
           timer->timer_interval = 0;
           timer->repeat = false;   
           list_insert_sorted(timer);
-          timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+          if (linked_list != NULL) {
+             timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+          }
 
-          return timer->timer_value;
+          return timer;
       }
   
   
@@ -167,19 +168,23 @@ target C {
           timer->callback = cb;
           list_insert_sorted(timer);
 
-          timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+          if (linked_list != NULL) {
+             timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+          }
 
-          return timer->timer_interval;
+          return timer;
       }
 
       void virtual_timer_cancel(uint32_t time_id){
-        node_t * current = linked_list;
-        while (current->timer_interval != time_id && current != NULL) {
-        current = current -> next;
+        node_t* pointer = time_id;
+        // while (current->timer_interval != time_id && current != NULL) {
+        // current = current -> next;
+        // }
+        list_remove(pointer);
+        free(pointer);
+        if (linked_list != NULL) {
+             timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
         }
-        list_remove(current);
-        free(current);
-        timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
       }
   
     =}
@@ -193,7 +198,12 @@ target C {
   
         virtual_timer_init();
         virtual_timer_start_repeated(1000000*1,callback_function_repeated);
-        target_time = 5;
+        // target_time = 5;
+    =}
+
+    timer t (5s,0);
+    reaction(t) {=
+      virtual_timer_cancel(linked_list-> timer_interval);
     =}
 
   }

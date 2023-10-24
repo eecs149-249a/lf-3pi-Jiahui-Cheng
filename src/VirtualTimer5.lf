@@ -136,7 +136,7 @@ target C {
         timer->callback = cb;
         list_insert_sorted(timer);
         timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
-        return timer->timer_value;
+        return timer;
     }
 
 
@@ -150,7 +150,7 @@ target C {
 
     timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
 
-    return timer->timer_value;
+    return &timer;
     }
 
       void virtual_timer_cancel(uint32_t time_id ){

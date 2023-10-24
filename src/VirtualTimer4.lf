@@ -141,7 +141,7 @@ main reactor {
         list_insert_sorted(timer);
         timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
 
-        return timer->timer_value;
+        return &timer;
     }
 
 

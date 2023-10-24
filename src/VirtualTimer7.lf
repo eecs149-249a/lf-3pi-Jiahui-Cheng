@@ -115,7 +115,7 @@ target C {
   
       void lab5_timer_irq_handler(void){ 
           linked_list->callback();
-          
+
           free(list_remove_first());
           //Clear the alarm irq
           hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
@@ -144,9 +144,11 @@ target C {
           timer->timer_interval = 0;
           timer->repeat = false;   
           list_insert_sorted(timer);
-          timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+          if (linked_list != NULL) {
+             timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+          }
   
-          return timer->timer_interval;
+          return timer;
       }
   
   
@@ -158,17 +160,23 @@ target C {
           timer->callback = cb;
           list_insert_sorted(timer);
 
-          timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+          if (linked_list != NULL) {
+             timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+          }
 
-          return timer->timer_interval;
+          return timer;
       }
 
-      void virtual_timer_cancel(uint32_t time_id ){
-        node_t * current = linked_list;
-        while (current->timer_interval != time_id) {
-        current = current->next;
-        }
-        list_remove(current);
+      void virtual_timer_cancel(uint32_t time_id){
+        node_t* pointer = time_id;
+        // while (current->timer_interval != time_id && current != NULL) {
+        // current = current -> next;
+        // }
+        list_remove(pointer);
+        free(pointer);
+        if (linked_list != NULL) {
+             timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+          }
       }
   
     =}
@@ -188,14 +196,6 @@ target C {
         virtual_timer_start(1000000*5,callback_function_turnon);
         virtual_timer_start(1000000*6,callback_function_turnoff);
     =}
-
-  // timer t(0,500ms)
-  // reaction(t){=
-  //     if(toggle){
-  //         led_on = !led_on;
-  //         gpio_put(PICO_DEFAULT_LED_PIN, !led_on);
-  //     }
-  // =}
 
 
   }

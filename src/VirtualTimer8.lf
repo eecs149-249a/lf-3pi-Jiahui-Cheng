@@ -140,8 +140,10 @@ target C {
         timer->repeat = false;        
         timer->callback = cb;
         list_insert_sorted(timer);
-        timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
-        return timer->timer_value;
+        if (linked_list != NULL) {
+             timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+          }
+        return timer;
     }
 
 
@@ -154,14 +156,14 @@ target C {
     irq_set_enabled(ALARM_IRQ,false); 
     list_insert_sorted(timer);
     irq_set_enabled(ALARM_IRQ,true); 
-    timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+    if (linked_list != NULL) {
+             timer_hw->alarm[ALARM_NUM] = linked_list -> timer_value;
+          }
 
-    return timer->timer_value;
+    return timer;
     }
 
-      void virtual_timer_cancel(uint32_t time_id ){
-        // list_remove(node_t* node);
-      }
+      void virtual_timer_cancel(uint32_t time_id ){}
   
     =}
   
