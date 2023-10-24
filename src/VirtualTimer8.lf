@@ -92,38 +92,24 @@ target C {
       /* You can also create your own linked list functions here. */
   
       virtual_timer_callback_t callback_function_toggle () {
-          printf("Toggle LED!");
-          node_t* current = list_remove_first();
-
-          if (current->repeat == true){
-            current-> timer_value = timer_hw->timerawl + current-> timer_interval;
-            list_insert_sorted(current);
             led_on = !led_on;
-            gpio_put(PICO_DEFAULT_LED_PIN, !led_on);    
-          }
-          else {
-            free(current);
-          }
-                
+            gpio_put(PICO_DEFAULT_LED_PIN, !led_on);        
       }
         
       virtual_timer_callback_t callback_function_nothing () {
-          printf("Nothing!");
-          node_t* current = list_remove_first();
-
-          if (current->repeat == true){
-            current-> timer_value = timer_hw->timerawl + current-> timer_interval;
-            list_insert_sorted(current);  
-          }
-          else {
-            free(current);
-          }
-                
+   
       }
   
   
       void lab5_timer_irq_handler(void){ 
-          linked_list -> callback();
+        linked_list -> callback(); 
+        if (linked_list->repeat == true){
+            linked_list-> timer_value = timer_hw->timerawl + linked_list-> timer_interval;
+            list_insert_sorted(list_remove_first());  
+          }
+          else {
+            free(list_remove_first());
+          }
           //Clear the alarm irq
           hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
           if (linked_list != NULL) {

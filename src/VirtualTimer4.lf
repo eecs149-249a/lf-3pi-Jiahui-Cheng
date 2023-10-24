@@ -7,6 +7,8 @@
 preamble {=
   #include <hardware/gpio.h>
   #include <pico/stdlib.h>
+  #include <stdio.h>
+  #include <time.h>
   #define timer_hw ((timer_hw_t *)TIMER_BASE)
   #define ALARM_NUM 0
   #define ALARM_IRQ TIMER_IRQ_0
@@ -31,6 +33,16 @@ main reactor {
     //The linked list for timer
     static node_t* linked_list = NULL;
     static bool led_on;
+
+    void sleep (unsigned duration){
+        time_t start = time (NULL);
+        double end = duration;
+        time_t now;
+        do {
+            now = time (NULL);
+        }while(difftime(now,start)<end);
+    }
+
 
     // linked list operation functions
     // insert the node in the sorted linked list (linked_list) and return the sorted linked list after the insertion
@@ -91,23 +103,22 @@ main reactor {
 
 
     /* You can also create your own linked list functions here. */
-    static bool toggle = false;
+    // static bool toggle = false;
 
     virtual_timer_callback_t callback_function() {
-        printf("Toggle LED!");
-        toggle = true;
-        free(list_remove_first());
-        
-        // gpio_put(PICO_DEFAULT_LED_PIN, !led_on);sleep(1);
-        // gpio_put(PICO_DEFAULT_LED_PIN, led_on);sleep(1);
-        // gpio_put(PICO_DEFAULT_LED_PIN, !led_on);     
+        int c;
+        for (c= 0; c < 6; c++){
+            led_on = !led_on;
+            gpio_put(PICO_DEFAULT_LED_PIN, !led_on);  
+            sleep(2);
+        }
     }
 
     void lab5_timer_irq_handler(void){ 
         //Clear the alarm irq
         hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
-
         linked_list -> callback();
+        free(list_remove_first());  
     }
 
     void virtual_timer_init(void){
@@ -156,13 +167,13 @@ main reactor {
 
 
 
-    timer t(0,500ms)
-    reaction(t){=
-        if(toggle){
-            led_on = !led_on;
-            gpio_put(PICO_DEFAULT_LED_PIN, !led_on);
-        }
-    =}
+    // timer t(0,500ms)
+    // reaction(t){=
+    //     if(toggle){
+    //         led_on = !led_on;
+    //         gpio_put(PICO_DEFAULT_LED_PIN, !led_on);
+    //     }
+    // =}
 
 
 

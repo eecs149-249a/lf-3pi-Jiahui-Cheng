@@ -104,21 +104,19 @@ target C {
       /* You can also create your own linked list functions here. */
   
       virtual_timer_callback_t callback_function_turnon () {
-          printf("Turn on LED!");
           led_on = true;
           gpio_put(PICO_DEFAULT_LED_PIN, !led_on);
-          free(list_remove_first());
       }
 
       virtual_timer_callback_t callback_function_turnoff () {
-          printf("Turn off LED!");
           led_on = false;
           gpio_put(PICO_DEFAULT_LED_PIN, !led_on);
-          free(list_remove_first());
       }
   
       void lab5_timer_irq_handler(void){ 
           linked_list->callback();
+          
+          free(list_remove_first());
           //Clear the alarm irq
           hw_clear_bits(&timer_hw->intr,1u << ALARM_NUM);
           if (linked_list != NULL) {
