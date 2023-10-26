@@ -10,12 +10,14 @@ target C {
     board: "pololu_3pi_2040_robot"
   },
   threading: false,
+  cmake-include: ["blink.txt"]
 }
 
 preamble {=
   #include <stdio.h>
   #include <pico/stdlib.h>
   #include <hardware/gpio.h>
+  #include <hardware/i2c.h>
 =}
 
 main reactor {
